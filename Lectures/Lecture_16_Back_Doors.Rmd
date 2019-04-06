@@ -1,0 +1,279 @@
+---
+title: "Lecture 16 Back Doors"
+author: "Nick Huntington-Klein"
+date: "March 3, 2019"
+output:   
+  revealjs::revealjs_presentation:
+    theme: solarized
+    transition: slide
+    self_contained: true
+    smart: true
+    fig_caption: true
+    reveal_options:
+      slideNumber: true
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE)
+library(tidyverse)
+library(dagitty)
+library(ggdag)
+library(gganimate)
+library(ggthemes)
+library(Cairo)
+theme_set(theme_gray(base_size = 15))
+```
+
+## Recap
+
+- We've now covered how to create causal diagrams
+- (aka Directed Acyclic Graphs, if you're curious what "dag"itty means)
+- We simply write out the list of the important variables, and draw causal arrows indicating what causes what
+- This allows us to figure out what we need to do to *identify* our effect of interest
+
+## Today
+
+- But HOW? How does it know?
+- Today we'll be covering the *process* that lets you figure out whether you can identify your effect of interest, and how
+- It turns out, once we have our diagram, to be pretty straightforward
+- So easy a computer can do it!
+
+## The Back Door and the Front Door
+
+- The basic way we're going to be thinking about this is with a metaphor
+- When you do data analysis, it's like observing that someone left their house for the day
+- When you do causal inference, it's like asking *how they left their house*
+- You want to *make sure* that they came out the *front door*, and not out the back door, not out the window, not out the chimney
+
+## The Back Door and the Front Door
+
+- Let's go back to this example
+
+```{r, dev='CairoPNG', echo=FALSE, fig.width=5, fig.height=4.5}
+dag <- dagify(IP.sp~tech,
+              profit~tech+IP.sp) %>% tidy_dagitty()
+ggdag(dag,node_size=20)
+```
+
+## The Back Door and the Front Door
+
+- We're interested in the effect of IP spend on profits. That means that our *front door* is the ways in which IP spend *causally affects* profits
+- Our *back door* is any other thing that might drive a correlation between the two - the way that tech affects both
+
+## Paths
+
+- In order to formalize this a little more, we need to think about the various *paths*
+- We observe that you got out of your house, but we want to know the paths you might have walked to get there
+- So, what are the paths we can walk to get from IP.spend to profits?
+
+## Paths
+
+- We can go `Ip.spend -> profit`
+- Or `IP.spend <- tech -> profit`
+
+```{r, dev='CairoPNG', echo=FALSE, fig.width=5, fig.height=4.5}
+dag <- dagify(IP.sp~tech,
+              profit~tech+IP.sp) %>% tidy_dagitty()
+ggdag(dag,node_size=20)
+```
+
+## The Back Door and the Front Door
+
+- One of these paths is the one we're interested in!
+- `Ip.spend -> profit` is a *front door path*
+- One of them is not!
+- `IP.spend <- tech -> profit` is a *back door path*
+
+## Now what?
+
+- Now, it's pretty simple!
+- In order to make sure you came through the front door...
+- We must *close the back door*
+- We can do this by *controlling/adjusting* for things that will block that door!
+- We can close `IP.spend <- tech -> profit` by adjusting for `tech`
+
+## So?
+
+- We already knew that we could get our desired effect in this case by controlling for `tech`.
+- But this process lets us figure out what we need to do in a *much wider range of situations*
+- All we need to do is follow the steps!
+    - List all the paths
+    - See which are back doors
+    - Adjust for a set of variables that closes all the back doors!
+    
+## Example
+
+- How does wine affect your lifespan?
+
+```{r, dev='CairoPNG', echo=FALSE, fig.width=7, fig.height=5}
+dag <- dagify(life~wine+drugs+health+income,
+              drugs~wine,
+              wine~health+income,
+              health~U1,
+              income~U1,
+              coords=list(
+                x=c(life=5,wine=2,drugs=3.5,health=3,income=4,U1=3.5),
+                y=c(life=3,wine=3,drugs=2,health=4,income=4,U1=4.5)
+              )) %>% tidy_dagitty()
+ggdag(dag,node_size=20)
+```
+
+## Paths
+
+- Paths from `wine` to `life`:
+- `wine -> life`
+- `wine -> drugs -> life`
+- `wine <- health -> life`
+- `wine <- income -> life`
+- `wine <- health <- U1 -> income -> life`
+- `wine <- income <- U1 -> health -> life`
+- Don't leave any out, even the ones that seem redundant!
+
+## Paths
+
+- <span style = "color:red">Front doors</span>/<span style = "color:blue">Back doors</span>
+- <span style = "color:red">`wine -> life`</span>
+- <span style = "color:red">`wine -> drugs -> life`</span>
+- <span style = "color:blue">`wine <- health -> life`</span>
+- <span style = "color:blue">`wine <- income -> life`</span>
+- <span style = "color:blue">`wine <- health <- U1 -> income -> life`</span>
+- <span style = "color:blue">`wine <- income <- U1 -> health -> life`</span>
+
+## Adjusting
+
+- By adjusting for variables we close these back doors
+- If an adjusted variable appears anywhere along the path, we can close that path off
+- Once *ALL* the back door paths are closed, we have blocked all the other ways that a correlation COULD appear except through the front door! We've identified the causal effect!
+- This is "the back door method" for identifying the effect. There are other methods; we'll get to them.
+
+## Adjusting for Health
+
+- <span style = "color:red">Front doors</span>/<span style = "color:blue">Open back doors</span>/<span style = "color:orange">Closed back doors</span>
+- <span style = "color:red">`wine -> life`</span>
+- <span style = "color:red">`wine -> drugs -> life`</span>
+- <span style = "color:orange">`wine <- health -> life`</span>
+- <span style = "color:blue">`wine <- income -> life`</span>
+- <span style = "color:orange">`wine <- health <- U1 -> income -> life`</span>
+- <span style = "color:orange">`wine <- income <- U1 -> health -> life`</span>
+
+## Adjusting for Health
+
+- Clearly, adjusting for health isn't ENOUGH to identify
+- We need to adjust for health AND income
+- We haven't covered how to actually control for multiple variables
+- We won't be focusing on it, but it's important for us to be able to know what *needs* to be controlled for
+
+## Adjusting for Health and Income
+
+- <span style = "color:red">Front doors</span>/<span style = "color:blue">Open back doors</span>/<span style = "color:orange">Closed back doors</span>
+- <span style = "color:red">`wine -> life`</span>
+- <span style = "color:red">`wine -> drugs -> life`</span>
+- <span style = "color:orange">`wine <- health -> life`</span>
+- <span style = "color:orange">`wine <- income -> life`</span>
+- <span style = "color:orange">`wine <- health <- U1 -> income -> life`</span>
+- <span style = "color:orange">`wine <- income <- U1 -> health -> life`</span>
+
+
+## How about Drugs?
+
+- Should we adjust for drugs?
+- No! This whole procedure makes that clear
+- It's on a *front door path*
+- If we adjusted for that, that's shutting out part of the way that `wine` *DOES* affect `life`
+
+## The Front Door
+
+- In fact, remember, our real goal isn't necessarily to close the back doors
+- It's to make sure you came through the front door!
+- Sometimes (rarely), we can actually isolate the front door ourselves
+
+## The Front Door
+
+- Imagine this version
+
+```{r, dev='CairoPNG', echo=FALSE, fig.width=7, fig.height=5}
+dag <- dagify(life~drugs+health+income,
+              drugs~wine,
+              wine~health+income,
+              health~U1,
+              income~U1,
+              coords=list(
+                x=c(life=5,wine=2,drugs=3.5,health=3,income=4,U1=3.5),
+                y=c(life=3,wine=3,drugs=2,health=4,income=4,U1=4.5)
+              )) %>% tidy_dagitty()
+ggdag(dag,node_size=20)
+```
+
+## The Front Door
+
+- This makes it real clear that you shouldn't control for drugs - that shuts the FRONT door! There's no way to get out of your house EXCEPT through the back door!
+- Note in this case that there's no back door from `wine` to `drugs`
+- And if we control for `wine`, no back door from `drugs` to `life` (let's check this by hand)
+- So we can identify `wine -> drugs` and we can identify `drugs -> life`, and combine them to get `wine -> life`!
+
+## The Front Door
+
+- This is called the "front door method"
+- Much less common than the back door method, but actually older
+- So we'll only cover it briefly
+- Historical relevance! This is similar to how they proved that cigarettes cause cancer
+
+## Cigarettes and Cancer
+
+```{r, dev='CairoPNG', echo=FALSE, fig.width=7, fig.height=5}
+dag <- dagify(tar~cigs,
+              cigs~health+income,
+              life~tar+health+income,
+              coords=list(
+                x=c(cigs=1,tar=2,health=2,income=2,life=3),
+                y=c(cigs=2,tar=2,health=1,income=3,life=2)
+              )) %>% tidy_dagitty()
+ggdag(dag,node_size=20)
+```
+
+## Paths
+
+- <span style = "color:red">Front doors</span>/<span style = "color:blue">Back doors</span>
+- <span style = "color:red">`cigs -> tar -> cancer`</span>
+- <span style = "color:blue">`cigs <- income -> cancer`</span>
+- <span style = "color:blue">`cigs <- health -> cancer`</span>
+
+## Paths
+
+- Closing these back doors is the problem that epidemiologists faced
+- They can't just run an experiment!
+- Problem: there are actually MANY back doors we're not listing
+- And sometimes we can't observe/control for these things
+- How can you possibly measure "health" well enough to actually control for it?
+
+## The Front Door Method
+
+- So, noting that there's no back door from `cigs` to `tar`, and then controlling for `cigs` no back door from `tar` to `cancer`, they combined these two effects to get the causal effect of `cigs` on `life`
+- This is how we established this causal effect!
+- Doctors had a decent idea that cigs caused cancer before, but some doctors disagreed
+- And they had good reason to disagree! The back doors were VERY plausible reasons to see a `cigs`/`cancer` correlation other than the front door
+
+## Practice
+
+- We want to know how `X` affects `Y`. Find all paths and make a list of what to adjust for to close all back doors
+
+```{r, dev='CairoPNG', echo=FALSE, fig.width=7, fig.height=5}
+dag <- dagify(Y~X+A+B+C+E,
+              X~A+B+D,
+              E~X,
+              A~U1+C,
+              B~U1,
+              coords=list(
+                x=c(X=1,E=2.5,A=2,B=3.5,C=1.5,D=1,Y=4,U1=2.5),
+                y=c(X=2,E=2.25,A=3,B=3,C=4,D=3,Y=2,U1=4)
+              )) %>% tidy_dagitty()
+ggdag(dag,node_size=20)
+```
+
+## Practice Answers
+
+- Front door paths: `X -> Y`, `X -> E -> Y`
+- Back doors: `X <- A -> Y`, `X <- B -> Y`, `X <- A <- U1 -> B -> Y`, `X <- B <- U1 -> A -> Y`, `X <- A <- C -> Y`, `X <- B <- U1 -> A <- C -> Y`
+- (that last back door is actually pre-closed, we'll get to that later)
+- We can close all back doors by adjusting for `A` and `B`.

@@ -1,0 +1,278 @@
+---
+title: "Lecture 4: Objects and Functions in R"
+author: "Nick Huntington-Klein"
+date: "January 17, 2019"
+output:   
+  revealjs::revealjs_presentation:
+    theme: solarized
+    transition: slide
+    self_contained: true
+    smart: true
+    fig_caption: true
+    reveal_options:
+      slideNumber: true
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+theme_set(theme_gray(base_size = 15))
+```
+
+## Working in R
+
+- Today we'll be starting to actually DO stuff in R
+- R is all about:
+    - Creating objects
+    - Looking at objects
+    - Manipulating objects
+    - That's, uh, it. That's all. That's what R does.
+
+## Creating a Basic Object
+
+- Let's create an object. We're going to do this with the assignment operator `<-` (a.k.a. "gets") 
+
+```{r, echo=TRUE}
+a <- 4
+```
+- This creates an object called `a`. What is that object? It's a number. Specifically, it's the number 4. We know that because we took that 4 and we shoved it into `a`.
+- Why store it as an object rather than just saying 4? Oh, plenty of reasons.
+- We can do more complex calculations before storing it, too.
+```{r, echo=TRUE}
+b <- sqrt(16)+10
+```
+
+
+## Looking at Objects
+
+- We can see this object that we've created in the Environment pane
+- Putting that object on a line by itself in R will show us what it is.
+
+```{r, echo=TRUE}
+a
+b
+```
+
+## Looking at Objects 
+
+- We can even create an object and look at it in the console without storing it.
+- Let's think about what is really happening in these lines
+```{r, echo=TRUE}
+3
+a+b
+```
+
+## Looking at Objects Differently
+
+- We can run objects through **functions** to look at them in different ways
+
+```{r, echo=TRUE}
+#What does a look like if we take the square root of it?
+sqrt(a)
+#What does it look like if we add 1 to it?
+a + 1
+#If we look at it, do we see a number?
+is.numeric(a)
+```
+
+## Manipulating Objects
+
+- We manipulated the object and LOOKED at it, we can also SAVE it, or UPDATE it.
+```{r, echo=TRUE}
+#We looked at what a looked like with 1 added, but a itself wasn't changed
+a
+#Let's save a+1 as something else
+b <- a + 1
+#And let's overwrite a with its square root
+a <- sqrt(a)
+a
+b
+```
+
+## Some Notes
+
+- Even though we changed `a`, `b` was already set using the old value of `a`, and so was still `4+1=5`, not `2+1=3`. 
+- `a` basically got *reassigned* with `<-`. That's how we got it to be `2`
+- This is a very simple example, but basically *everything* in R is just this process but with more complex objects and more complex functions!
+
+## Types of Objects
+
+- We already determined that `a` was a number. But what else could it be? What other kinds of variables are there?
+- Some basic object types:
+    - Numeric: A single number
+    - Character: A string of letters, like `'hello'`
+    - Logical: `TRUE` or `FALSE` (or `T` or `F`)
+    - Factor: A category, like `'left handed', 'right handed', or 'ambidextrous'`
+    - Vector: A collection of objects of the same type
+    
+## Characters
+
+- A character object is a piece of text, held in quotes like `''` or `""`
+- For example, maybe you have some data on people's addresses.
+
+```{r, echo=TRUE}
+address <- '321 Fake St.'
+address
+is.character(address)
+```
+
+## Logical
+
+- Logicals are binary - TRUE or FALSE. They're extremely important because lots of data is binary.
+
+```{r, echo=TRUE}
+c <- TRUE
+is.logical(c)
+is.character(a)
+is.logical(is.numeric(a))
+```
+
+## Logical
+
+- Logicals are used a lot in programming too, because you can evaluate whether conditions hold.
+
+```{r, echo=TRUE}
+a > 100
+a > 100 | b == 5
+```
+
+- `&` is AND, `|` is OR, and to check equality use `==`, not `=`. `>=` is greater than OR equal to, similarly for `<=`
+
+## Logical
+
+- They are also equivalent to `TRUE=1` and `FALSE=0` which comes in handy.
+- We can use `as` functions to change one object type to another (although for `T=1, F=0` it does it automatically)
+
+```{r, echo=TRUE}
+as.numeric(FALSE)
+TRUE + 3
+```
+
+## Logicals Test
+
+- Let's stop and try to think about what these lines might do:
+```{r, echo=TRUE, eval=FALSE}
+is.logical(is.numeric(FALSE))
+is.numeric(2) + is.character('hello')
+is.numeric(2) & is.character(3)
+TRUE | FALSE
+TRUE & FALSE
+```
+
+## Factors
+
+- Factors are categorical variables - mutually exclusive groups
+- They look like strings, but they're more like logicals, but with more than two levels (and labeled differently than T and F)
+- Factors have *levels* showing the possible categories you can be in
+```{r, echo=TRUE}
+e <- as.factor('left-handed')
+levels(e) <- c('left-handed','right-handed','ambidextrous')
+e
+```
+
+## Vectors
+
+- Data is basically a bunch of variables all put together
+- So unsurprisingly, a lot of R works with vectors, which are a bunch of objects all put together!
+- Use `c()` (concatenate) to put a bunch of objects of the same type together in a vector
+- Use square brackets to pick out parts of the vector
+
+```{r, echo=TRUE}
+d <- c(5,6,7,8)
+c(is.numeric(d),is.vector(d))
+d[2]
+```
+
+## Vectors
+
+- Unsurprisingly, lots of statistical functions look at multiple objects (what is statistics but making sense of lots of different measurements of the same thing?)
+
+```{r, echo=TRUE}
+mean(d)
+c(sum(d),sd(d),prod(d))
+```
+
+## Vectors
+
+- We can perform the same operation on all parts of the vector at once!
+
+```{r, echo=TRUE}
+d + 1
+d + d
+d > 6
+```
+
+## Vectors
+
+- Factors make a lot more sense as a vector
+
+```{r, echo=TRUE}
+continents <- as.factor(c('Asia','Asia','Asia',
+                          'N America','Europe','Africa','Africa'))
+table(continents)
+continents[4]
+```
+
+## Value Matching
+
+- It's easy to create logicals seeing if a value matches ANY value in a vector with %in%
+
+```{r, echo=TRUE}
+3 %in% c(3,4)
+c('Nick','James') %in% c('James','Andy','Sarah')
+```
+
+## Basic Vectors
+
+- Generating basic vectors:
+
+```{r, echo=TRUE, eval=FALSE}
+1:8
+rep(4,3)
+rep(c('a','b'),4)
+numeric(5)
+character(6)
+sample(1:20,3)
+sample(c("Heads","Tails"),6,replace=TRUE)
+```
+```{r, echo=FALSE, eval=TRUE}
+1:8
+rep(4,3)
+rep(c('a','b'),4)
+numeric(5)
+character(6)
+sample(1:20,3)
+sample(c("Heads","Tails"),6,replace=TRUE)
+```
+
+## Vector Test
+- If we do `f <- c(2,3,4,5)`, then what will the output of these be?
+
+```{r, echo=TRUE, eval = FALSE}
+f^2
+f + c(1,2,3,4)
+c(f,6)
+is.numeric(f)
+mean(f >= 4)
+f*c(1,2,3)
+length(f)
+length(rep(1:4,3))
+f/2 == 2 | f < 3
+as.character(f)
+f[1]+f[4]
+c(f,f,f,f)
+f[f[1]]
+f[c(1,3)]
+f %in% (1:4*2)
+```
+
+## And Now You
+
+- Create a factor that randomly samples six `'Male'` or `'Female'` people.
+- Add up all the numbers from 18 to 763, then get the mean
+- What happens if you make a list with a logical, a numeric, AND a string in it?
+- Figure out how to use `paste0()` to turn `c('a','b')` into `'ab'`
+- Use `[]` to turn `h <- c(10,9,8,7)` into `c(7,8,10,9)` and call it `j`
+- (Several ways) Create a vector with eleven 0's, then a 5.
+- (Tough!) Use `floor()` or `%%` to count how many multiples of 4 there are between 433 and 899

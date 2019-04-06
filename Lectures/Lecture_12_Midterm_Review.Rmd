@@ -1,0 +1,210 @@
+---
+title: "Lecture 12: Midterm Review"
+author: "Nick Huntington-Klein"
+date: "February 14, 2019"
+output:   
+  revealjs::revealjs_presentation:
+    theme: solarized
+    transition: slide
+    self_contained: true
+    smart: true
+    fig_caption: true
+    reveal_options:
+      slideNumber: true
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(stargazer)
+theme_set(theme_gray(base_size = 15))
+```
+
+## Recap
+
+- We've been covering how to work with data in R
+- Building up multiple variables (numeric, character, logical, factor) into vectors
+- Joining vectors together into data.frames or tibbles
+- Making data, downloading data, getting data from packages
+- Manipulating (with dplyr), summarizing, and plotting that data
+- Looking at relationships between variables
+
+## Working with Objects
+
+- Create a vector with `c()` or `1:4` or `sample()` or `numeric()` etc.
+- Create logicals to check conditions on a vector, i.e. `a < 5 & a > 1` or `c('A','B') %in% c('A','C','D')`
+- Check vector type with `is.` functions or change them with `as.`
+- Use `help()` to figure out how to use new functions you don't know yet!
+
+## Working with Objects Practice
+
+- Use `sample()` to generate a vector of 1000 names from Jack, Jill, and Mary.
+- Use `%in%` to count how many are Jill or Mary.
+- Use `help()` to figure out how to use the `substr` function to get the first letter of the name. Then, use that to count how many names are Jack or Jill.
+- Change the vector to a factor.
+- Create a vector of all integers from 63 to 302. Then, count how many are below 99 or above 266.
+
+## Answers
+
+```{r, echo=TRUE, eval=FALSE}
+names <- sample(c('Jack','Jill','Mary'),1000,replace=T)
+sum(names %in% c('Jill','Mary'))
+firstletter <- substr(names,1,1)
+sum(firstletter == "J")
+names <- factor(names)
+
+numbers <- 63:302
+sum(numbers < 99 | numbers > 266)
+```
+
+## Working with Data
+
+- Get data with `read.csv()` or `data()`, or create it with `data.frame()` or `tibble()`
+- Use dplyr to manipulate it:
+    - `filter()` to pick a subset of observations
+    - `select()` to pick a subset of variables
+    - `rename()` to rename variables
+    - `mutate()` to create new variables
+    - `%>%` to chain together commands
+- Automate things with a `for (i = 1:10) {}` loop
+
+## Working with Data Practice
+
+- Load the `Ecdat` library and get the `Computers` data set
+- In one chain of commands,
+    - create a logical `bigHD` if the `hd` is above median
+    - remove the `ads` and `trend` variables
+    - limit the data to only premium computers
+- Use a `for` loop to print out the median price for each level of `ram`
+    - Loop over a vector, sometimes useful to use `unique()`
+
+## Answers
+
+```{r, echo=TRUE, eval=FALSE}
+library(Ecdat)
+data(Computers)
+
+Computers <- Computers %>%
+  mutate(bigHD = hd > median(hd)) %>%
+  select(-ads,-trend) %>%
+  filter(premium == "yes")
+
+for (i in unique(Computers$ram)) {
+  print(median(filter(Computers,ram==i)$price))
+}
+```
+
+## Summarizing Single Variables
+
+- Variables have a *distribution* and we are interested in describing that distribution
+- `table()`, `mean()`, `sd()`, `quantile()` and functions for 0, 50, 100% percentiles `min()` `median()` `max()`
+- `stargazer()` to get a bunch of summary stats at once
+- Plotting: `plot(density(x))`, `hist()`, `barplot(table())`
+- Adding to plots with `points()`, `lines()`, `abline()`
+
+## Summarizing Single Variables Practice
+
+- Create a text stargazer table of Computers
+- Use `table` to look at the distribution of `ram`, then make a `barplot` of it
+- Create a density plot of price, and use a single `abline(v=)` to overlay the 0, 10, 20, ..., 100% percentiles on it as blue vertical lines
+
+## Answers
+
+```{r, echo=TRUE, eval=FALSE}
+library(stargazer)
+stargazer(Computers,type='text')
+
+table(Computers$ram)
+barplot(table(Computers$ram))
+
+plot(density(Computers$price),xlab='Price',main='Distribution of Computer Price')
+abline(v=quantile(Computers$price,0:10/10),col='blue')
+```
+
+## Relationships Between Variables
+
+- Looking at the distribution of one variable *at a given value of another variable*
+- Check for dependence with `prop.table(table(x,y),margin=)`
+- Correlation: are they large/small together? `cor()`
+- `group_by(x) %>% summarize(mean(y))` to get mean of y within values of x
+- `cut(x,breaks=10)` to put x into "bins" to explain y with
+- Mean of y within values of x gives part of y *explained* by x
+- Proportion of variance explained `1-var(residuals)/var(y)`
+- `plot(x,y)` or overlaid density plots
+
+## Relationships Practice
+
+- Use `prop.table` with both margins to see if cd and multi look dependent
+- Use `cut` to make 10 bins of `hd`
+- Get average price by bin of `hd`, and residuals
+- Calculate proportion of variance in price explained by `hd`, and calculate correlation
+- Plot `price` (y-axis) against `hd` (x-axis)
+
+## Answers
+
+```{r, echo=TRUE, eval=FALSE}
+prop.table(table(Computers$cd,Computers$multi),margin=1)
+prop.table(table(Computers$cd,Computers$multi),margin=2)
+
+Computers <- Computers %>%
+  mutate(hdbins = cut(hd,breaks=10)) %>%
+  group_by(hdbins) %>%
+  mutate(priceav = mean(price)) %>%
+  mutate(res = price - priceav)
+
+#variance explained
+1 - var(Computers$res)/var(Computers$price)
+
+plot(Computers$hd,Computers$price,xlab="Size of Hard Drive",ylab='Price')
+```
+
+## Simulation
+
+- There are *true models* that we can't see, but which generate data for us
+- We want to use methods that can work backwards to uncover true models
+- We can randomly generate data using a true model we decide, and see if our method uncovers it
+- `rnorm()`, `runif()`, `sample()`
+- Create a blank vector, then a `for` loop to make data and analyze. Store result in the vector
+- Analyze the vector to see what the results look like
+
+##Simulation Practice
+
+- Create a for loop that creates 500 obs of `At.War` (logical, equal to 1 10% of the time)
+- And `Net.Exports` (uniform, min -1, max 1, then subtract 3*At.War)
+- And `GDP.Growth` (normal, mean 0, sd 3, then add + Net.Exports + At.War)
+- Explains GDP.Growth with At.War and takes the residual
+- Calculates `cor()` between GDP.Growth and Net.Exports, and between GDP.Growth and residual
+- Stores the correlations in two separate vectors, and then compares their distributions after 1000 loops
+
+## Answer
+
+```{r, echo=TRUE, eval=FALSE}
+library(stargazer)
+
+GDPcor <- c()
+rescor <- c()
+
+for (i in 1:1000) {
+  df <- tibble(At.War = sample(0:1,500,replace=T,prob=c(.9,.1))) %>%
+    mutate(Net.Exports = runif(500,-1,1)-3*At.War) %>%
+    mutate(GDP.Growth = rnorm(500,0,3)+Net.Exports+At.War) %>%
+    group_by(At.War) %>%
+    mutate(residual = GDP.Growth - mean(GDP.Growth))
+  
+  GDPcor[i] <- cor(df$GDP.Growth,df$Net.Exports)
+  rescor[i] <- cor(df$residual,df$Net.Exports)
+}
+
+stargazer(data.frame(rescor,GDPcor),type='text')
+```
+
+## Midterm
+
+Reminders:
+
+- Midterm will allow the use of the R help files but not the rest of the internet
+- You will also have access to lecture slides. *I do not recommend relying on them as this would take you a lot of time*
+- Anything we've covered is fair game
+- There will be one question that requires you to learn about, and use, a function we haven't used yet
+- The answer key to the midterm contains 35 lines of code, many of which are dplyr

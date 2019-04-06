@@ -1,0 +1,389 @@
+---
+title: "Lecture 26 Causal Inference Midterm Review"
+author: "Nick Huntington-Klein"
+date: "March 28, 2019"
+output:   
+  revealjs::revealjs_presentation:
+    theme: solarized
+    transition: slide
+    self_contained: true
+    smart: true
+    fig_caption: true
+    reveal_options:
+      slideNumber: true
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE)
+library(tidyverse)
+library(dagitty)
+library(ggdag)
+library(gganimate)
+library(ggthemes)
+library(Cairo)
+theme_set(theme_gray(base_size = 15))
+```
+
+## Causal Inference Midterm
+
+- Similar format to the homeworks we've been having
+- At least one question evaluating a research question and drawing a dagitty graph
+- At least one question identifying the right causal inference method to use
+- At least one question about the feature(s) of the methods
+- At least one question carrying out a method in R
+
+## Causal Inference Midterm
+
+- Covers everything up to IV (obviously, a focus on things since the Programming Midterm, but there is a little programming)
+- No internet (except dagitty) or slides available this time
+- One 3x5 index card, front and back
+- You'll have the whole class period so don't be late!
+
+## Causal Diagrams
+
+1. Consider all the variables that are likely to be important in the data generating process (this includes variables you can't observe)
+2. For simplicity, combine them together or prune the ones least likely to be important
+3. Consider which variables are likely to affect which other variables and draw arrows from one to the other
+4. (Bonus: Test some implications of the model to see if you have the right one)
+
+## Causal Diagrams
+
+Identifying `X -> Y` by closing back doors:
+
+1. Find all the paths from `X` to `Y` on the diagram
+2. Determine which are "front doors" (start with `X ->`) and which are "back doors" (start with `X <-`)
+3. Determine which are already closed by colliders (`X -> C <- Y`)
+4. Then, identify the effect by finding which variables you need to control for to close all back doors (careful - don't close the front doors, or open back up paths with colliders!)
+
+## Causal Diagrams
+
+- Let's draw (and justify) a diagram to get the effect of Building Code Restrictions `BCR`, which prevent housing from being built, on `Rent`
+- Consider perhaps: the `Sup`ply of housing built, characteristics of the `loc`ation that lead to `BCR`s being passed, `Dem`and for housing in the area, the overall economy...
+
+## Causal Diagrams Answer
+
+One answer, with non-BCR `Laws`, `Labor` market, `econ`omy:
+
+```{r, dev='CairoPNG', echo=FALSE, fig.width=7, fig.height=5.5}
+dag <- dagify(Rent~Dem+Sup+Laws,
+              Laws~loc+U1,
+              Sup~loc+BCR+econ,
+              Dem~loc+Labor+econ,
+              BCR~loc+U1,
+              Labor~econ,
+              coords=list(
+                x=c(Rent=3,Dem=2,Sup=2,Laws=1,loc=0,U1=0,econ=2,BCR=1,Labor=1.5),
+                y=c(Rent=1,Dem=1.5,Sup=3,Laws=1,loc=2,U1=1,econ=2.25,BCR=1.5,Labor=1.85)
+              )) %>% tidy_dagitty()
+ggdag(dag,node_size=20)
+```
+
+## Causal Diagram Answer
+
+Open front doors:
+
+- `BCR -> Sup -> Rent`
+- (note all others closed because they use Sup as a collider)
+
+Open back doors:
+
+- `BCR <- U1 -> Laws -> Rent`
+- `BCR <- loc -> Laws -> Rent`
+- `BCR <- loc -> Dem -> Rent`
+- `BCR <- loc -> Sup -> Rent`
+
+Which others paths are there, closed by colliders?
+
+## Causal Diagram Answer
+
+- If we control for Laws, then BCR <- U1 -> Laws <- loc -> etc. opens back up! 
+- Thankfully if we control for `loc` that shuts it back down
+- We can identify this by controlling just for `loc` and `Laws`
+
+## Controlling
+
+- One way to close back doors is by controlling
+- Control for `W` by seeing what `W` explains (sometimes using `cut()`) and taking it out
+
+```{r, echo=TRUE}
+library(Ecdat)
+data(BudgetFood)
+cor(BudgetFood$wfood,BudgetFood$totexp)
+
+BudgetFood <- BudgetFood %>% group_by(cut(age,breaks=5)) %>%
+  mutate(wfood.r = wfood - mean(wfood),totexp.r = totexp-mean(totexp))
+cor(BudgetFood$wfood.r,BudgetFood$totexp.r)
+```
+
+## Fixed Effects
+
+- If we have data where we observe the same people over and over, we can implement *fixed effects* by controlling for *individual*
+- In our rent example, this would be a control for `loc`
+- This accounts for everything that's constant within individual. Here, geography, etc.
+- Doesn't account for things that vary within individual over time, like `Laws`
+
+## Instrumental Variables
+
+- Or, we can ignore those back doors altogether if we have an *instrumental variable*
+- If `Z` and `X` are related, and all open paths from `Z` to `Y` go through `X`, then `Z` can be an instrument for `X`
+- We isolate JUST the variation that comes from `Z`. No back doors in that variation! We have a causal effect
+- Can conceptually think of it as (or literally apply it to) an experiment where randomization doesn't work perfectly
+
+## Instrumental Variables
+
+```{r, dev='CairoPNG', echo=FALSE, fig.width=7, fig.height=5.5}
+dag <- dagify(X~Z+W,
+              Y~X+W,
+              coords=list(
+                x=c(Z=0,X=1,W=1.5,Y=2),
+                y=c(Z=0,X=0,W=1,Y=0)
+              )) %>% tidy_dagitty()
+ggdag(dag,node_size=20)
+```
+
+## Instrumental Variables
+
+```{r, echo=TRUE}
+df <- tibble(W = rnorm(1000),Z=sample(c(0,1),1000,replace=T)) %>%
+  mutate(X = rnorm(1000) + W + Z) %>%
+  mutate(Y = rnorm(1000) + 3*X - 10*W)
+
+cor(df$X,df$Y)
+
+iv <- df %>% group_by(Z) %>%
+  summarize(X = mean(X),Y=mean(Y))
+(iv$Y[2]-iv$Y[1])/(iv$X[2]-iv$X[1])
+```
+
+## Treated and Untreated Groups
+
+- In many cases, we want to know the effect of having something or not, `D`, and want to compare a treated group (`D=1`) to an untreated one (`D=0`)
+- In each case we are trying to find apples-to-apples comparisons
+- Controlling works for this, but there are many other methods
+- How can we make our two groups comparable?
+
+## Matching
+
+- Instead of controlling, we can *construct* our treatement and control groups using matching
+- In class we've used Coarsened Exact Matching
+- This closes back doors for whatever we matched on
+- Works, like controlling, if we can observe and measure all the variables necessary to block the back doors
+
+## Matching
+
+- What is the effect of gender on the proportion of your income spent on food?
+- We'll match on everything else in the data
+- Use `inner_join` to match up treated ("male") and untreated ("female") observations
+
+## Matching
+
+```{r, echo=TRUE}
+bf <- BudgetFood %>% select(wfood,size,town,sex) %>%
+  mutate(size.c=cut(size,breaks=3)) %>%
+  group_by(size.c,town,sex) %>%
+  summarize(wfood = mean(wfood)) %>% ungroup()
+
+bf.male <- filter(bf,sex=="man") %>% rename(wfood.m = wfood) %>% select(-sex)
+bf.female <- filter(bf,sex=="woman") %>% rename(wfood.f = wfood) %>% select(-sex)
+
+matched <- inner_join(bf.male,bf.female)
+mean(matched$wfood.m)
+mean(matched$wfood.f)
+```
+
+## Difference-in-Difference
+
+- Difference-in-Difference applies when you have a group that you can observe both before and after the policy
+- You worry that `time` is a confounder, but you can't control for it
+- Unless you add a control group that DIDN'T get the policy
+
+## Difference-in-Difference
+
+```{r, dev='CairoPNG', echo=FALSE, fig.width=7, fig.height=5.5}
+dag <- dagify(D~Group+Time,
+              Y~Group+Time+D,
+              coords=list(
+                x=c(D=0,Group=1,Time=1,Y=2),
+                y=c(D=1,Group=0,Time=2,Y=1)
+              )) %>% tidy_dagitty()
+ggdag(dag,node_size=20)
+```
+
+## Difference-in-Difference
+
+- Get the before-after difference for both groups
+- Then subtract out the difference for the control
+
+```{r, echo=TRUE}
+diddata <- tibble(Group=c(rep("C",2500),rep("T",2500)),
+                  Time=rep(c(rep("Before",1250),rep("After",1250)),2)) %>%
+  mutate(Treated = (Group == "T") & Time == "After") %>%
+  mutate(Y = 2*(Group == "T") + 1.5*(Time == "After") + 3*Treated + rnorm(5000))
+did <- diddata %>% group_by(Group,Time) %>% summarize(Y = mean(Y))
+before.after.control <- did$Y[1] - did$Y[2]
+before.after.treated <- did$Y[3] - did$Y[4]
+did.effect <- before.after.treated - before.after.control
+did.effect
+```
+
+## Difference-in-Difference
+
+```{r, dev='CairoPNG', echo=FALSE, fig.width=8,fig.height=7}
+df <- data.frame(Control = c(rep("Control",150),rep("Treatment",150)),
+                 Time=rep(c(rep("Before",75),rep("After",75)),2)) %>%
+  mutate(Y = 2+2*(Control=="Treatment")+1*(Time=="After") + 1.5*(Control=="Treatment")*(Time=="After")+rnorm(300),state="1",
+         xaxisTime = (Time == "Before") + 2*(Time == "After") + (runif(300)-.5)*.95) %>%
+  group_by(Control,Time) %>%
+  mutate(mean_Y=mean(Y)) %>%
+  ungroup()
+
+df$Time <- factor(df$Time,levels=c("Before","After"))
+
+#Create segments
+dfseg <- df %>%
+  group_by(Control,Time) %>%
+  summarize(mean_Y = mean(mean_Y)) %>%
+  ungroup()
+
+diff <- filter(dfseg,Time=='After',Control=='Control')$mean_Y[1] - filter(dfseg,Time=='Before',Control=='Control')$mean_Y[1]
+
+dffull <- rbind(
+  #Step 1: Raw data only
+  df %>% mutate(state='1. Start with raw data.'),
+  #Step 2: Add Y-lines
+  df %>% mutate(state='2. Explain Y using Treatment and After.'),
+  #Step 3: Collapse to means
+  df %>% mutate(Y = mean_Y,state="3. Keep only what's explained by Treatment and After."),
+  #Step 4: Display time effect
+  df %>% mutate(Y = mean_Y,state="4. See how Control changed Before to After."),
+  #Step 5: Shift to remove time effect
+  df %>% mutate(Y = mean_Y 
+                - (Time=='After')*diff,
+                state="5. Remove the Before/After Control difference for both groups."),
+  #Step 6: Raw demeaned data only
+  df %>% mutate(Y = mean_Y 
+                - (Time=='After')*diff,
+                state='6. The remaining Before/After Treatment difference is the effect.'))
+
+
+
+p <- ggplot(dffull,aes(y=Y,x=xaxisTime,color=as.factor(Control)))+geom_point()+
+  guides(color=guide_legend(title="Group"))+
+  geom_vline(aes(xintercept=1.5),linetype='dashed')+
+  scale_color_colorblind()+
+  scale_x_continuous(
+    breaks = c(1, 2),
+    label = c("Before Treatment", "After Treatment")
+  )+xlab("Time")+
+  #The four lines for the four means
+  geom_segment(aes(x=ifelse(state %in% c('2. Explain Y using Treatment and After.',"3. Keep only what's explained by Treatment and After."),
+                            .5,NA),
+                   xend=1.5,y=filter(dfseg,Time=='Before',Control=='Control')$mean_Y[1],
+                   yend=filter(dfseg,Time=='Before',Control=='Control')$mean_Y[1]),size=1,color='black')+
+  geom_segment(aes(x=ifelse(state %in% c('2. Explain Y using Treatment and After.',"3. Keep only what's explained by Treatment and After."),
+                            .5,NA),
+                   xend=1.5,y=filter(dfseg,Time=='Before',Control=='Treatment')$mean_Y[1],
+                   yend=filter(dfseg,Time=='Before',Control=='Treatment')$mean_Y[1]),size=1,color="#E69F00")+
+  geom_segment(aes(x=ifelse(state %in% c('2. Explain Y using Treatment and After.',"3. Keep only what's explained by Treatment and After."),
+                            1.5,NA),
+                   xend=2.5,y=filter(dfseg,Time=='After',Control=='Control')$mean_Y[1],
+                   yend=filter(dfseg,Time=='After',Control=='Control')$mean_Y[1]),size=1,color='black')+
+  geom_segment(aes(x=ifelse(state %in% c('2. Explain Y using Treatment and After.',"3. Keep only what's explained by Treatment and After."),
+                            1.5,NA),
+                   xend=2.5,y=filter(dfseg,Time=='After',Control=='Treatment')$mean_Y[1],
+                   yend=filter(dfseg,Time=='After',Control=='Treatment')$mean_Y[1]),size=1,color="#E69F00")+
+  #Line indicating treatment effect
+  geom_segment(aes(x=1.5,xend=1.5,
+                   y=ifelse(state=='6. The remaining Before/After Treatment difference is the effect.',
+                            filter(dfseg,Time=='After',Control=='Treatment')$mean_Y[1]-diff,NA),
+                   yend=filter(dfseg,Time=='Before',Control=='Treatment')$mean_Y[1]),size=1.5,color='blue')+
+  #Line indicating pre/post control difference
+  geom_segment(aes(x=1.5,xend=1.5,
+                   y=ifelse(state=="4. See how Control changed Before to After.",
+                            filter(dfseg,Time=='After',Control=='Control')$mean_Y[1],
+                            ifelse(state=="5. Remove the Before/After Control difference for both groups.",
+                                   filter(dfseg,Time=='Before',Control=='Control')$mean_Y[1],NA)),
+                   yend=filter(dfseg,Time=='Before',Control=='Control')$mean_Y[1]),size=1.5,color='blue')+
+  labs(title = 'The Difference-in-Difference Effect of Treatment \n{next_state}')+
+  transition_states(state,transition_length=c(6,16,6,16,6,6),state_length=c(50,22,12,22,12,50),wrap=FALSE)+
+  ease_aes('sine-in-out')+
+  exit_fade()+enter_fade()
+
+animate(p,nframes=150)
+```
+
+
+## Regression Discontinuity
+
+- If we have a treatment `D` that is assigned based on a cutoff in a running variable, we can use regression discontinuity
+- Focus right around the cutoff and compare above-cutoff to below-cutoff
+- We've isolated a great set of treatment/control groups because in this area it's basically random whether you're above or below the cutoff
+
+## Regression Discontinuity
+
+```{r, dev='CairoPNG', echo=FALSE, fig.width=7, fig.height=5.5}
+dag <- dagify(D~Above+W,
+              Above~Run,
+              Run~W,
+              Y~D+Run+W,
+              coords=list(
+                x=c(D=1,Above=2,W=3,Run=3,Y=4),
+                y=c(D=1,Above=1.25,W=2,Run=1.25,Y=.5)
+              )) %>% tidy_dagitty()
+ggdag(dag,node_size=20)
+```
+
+## Regression Discontinuity
+
+```{r, echo=TRUE}
+rdddata <- tibble(W=rnorm(10000)) %>%
+  mutate(run = runif(10000)+.03*W) %>%
+  mutate(treated = run >= .6) %>%
+  mutate(Y = 2+.01*run+.5*treated+W+rnorm(10000))
+bandwidth <- .02
+rdd <- rdddata %>% filter(abs(run-.6)<=bandwidth) %>%
+  mutate(above = run >= .6) %>%
+  group_by(above) %>%
+  summarize(Y = mean(Y))
+rdd
+```
+
+## Regression Discontinuity
+
+- Expressed well in graphs! Treatment should jump at cutoff. If not perfectly from 0% to 100%, use IV too
+
+```{r, dev='CairoPNG', echo=FALSE, fig.width=7, fig.height=5}
+ggplot(rdddata,aes(x=run,y=as.numeric(treated),color=treated)) + geom_point()+
+  geom_vline(aes(xintercept=.6))+
+  labs(x='Running Variable',
+       y='Treated')
+```
+
+## Regression Discontinuity
+
+- Variables other than `Y` and treatment shouldn't jump at cutoff - they should be balanced
+
+```{r, dev='CairoPNG', echo=FALSE, fig.width=7, fig.height=5}
+ggplot(rdddata,aes(x=run,y=W,color=treated)) + geom_point()+
+  geom_vline(aes(xintercept=.6))+
+  labs(x='Running Variable',
+       y='W')
+```
+
+## Regression Discontinuity
+
+- Technically we're looking for how much this jumps at the cutoff
+
+```{r, dev='CairoPNG', echo=FALSE, fig.width=7, fig.height=5}
+ggplot(rdddata,aes(x=run,y=Y,color=treated)) + geom_point()+
+  geom_vline(aes(xintercept=.6))+
+  labs(x='Running Variable',
+       y='Y')
+```
+
+## That's it!
+
+- In a very condensed way, that's the material we covered!
+- I recommend looking back over slides, notes, homeworks
+- Homeworks will be most similar to the questions on the midterm

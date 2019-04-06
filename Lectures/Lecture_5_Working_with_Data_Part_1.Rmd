@@ -1,0 +1,360 @@
+---
+title: "Lecture 5: Working with Data Part 1"
+author: "Nick Huntington-Klein"
+date: "January 18, 2019"
+output:   
+  revealjs::revealjs_presentation:
+    theme: solarized
+    transition: slide
+    self_contained: true
+    smart: true
+    fig_caption: true
+    reveal_options:
+      slideNumber: true
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+theme_set(theme_gray(base_size = 15))
+options(warn=-1)
+```
+
+## Working with Data
+
+- R is all about working with data!
+- Today we're going to start going over the use of data.frames and tibbles
+- data.frames are an object type; tibbles are basically data.frames with some extra bells and whistles, from the *tidyverse* package
+- Most of the time, you'll be doing calculations using them
+
+## The Basic Idea
+
+- Conceptually, data.frames are basically spreadsheets
+- Technically, they're a list of vectors
+
+|Spreadsheet | data.frame | 
+|------------|-------------|
+|![](Lecture_5_Spreadsheet.png) |![](Lecture_5_data_frame.png)|
+
+
+## Example
+
+- It's a list of vectors... we can make one by listing some (same-length) vectors!
+- (Note the use of = here, not <-)
+
+
+```{r, echo=TRUE}
+df <- data.frame(RacePosition = 1:5,
+                 WayTheySayHi = as.factor(c('Hi','Hello','Hey','Yo','Hi')),
+                 NumberofKids = c(3,5,1,0,2))
+df <- tibble(RacePosition = 1:5,
+                 WayTheySayHi = as.factor(c('Hi','Hello','Hey','Yo','Hi')),
+                 NumberofKids = c(3,5,1,0,2))
+df
+```
+
+## Looking Over Data
+
+- Now that we have our data, how can we take a look at it?
+- We can just name it in the Console and look at the whole thing, but that's usually too much data
+- We can look at the whole thing by clicking on it in Environment to open it up
+
+## Glancing at Data
+
+- What if we just want a quick overview, rather than looking at the whole spreadsheet?
+    - Down-arrow in the Environment tab
+    - `head()` (look at the head of the data - first six rows)
+    - `str()` (structure)
+    
+```{r, echo=TRUE}
+str(df)
+```
+
+## So What?
+
+- What do we want to know about our data?
+    - What is this data OF? (won't get that with `str()`)
+    - Data types
+    - The kinds of values it takes
+    - How many observations
+    - Variable names.
+    - Summary statistics and observation level (we'll get to that later)
+
+## Getting at Data
+
+- Now we have a data frame, `df`. How do we use it?
+- One way is that we can pull those vectors back out with `$`! Note autocompletion of variable names.
+- We can treat it just like the vectors we had before
+
+```{r, echo=TRUE}
+df$NumberofKids
+df$NumberofKids[2]
+df$NumberofKids >= 3
+```
+
+## Quick Note
+
+- There are actually many many ways to do this
+- (some of which I even go over in the videos)
+- For example, you can use `[row,column]` to get at data, for example `df$NumberofKids >= 3` is equivalent to `df[,3] >= 3` or `df[,'NumberofKids']>=3`
+
+## That Said!
+
+- We can run the same calculations on these vectors as we were doing before
+
+```{r, echo=TRUE}
+mean(df$RacePosition)
+df$WayTheySayHi[4]
+sum(df$NumberofKids <= 1)
+```
+
+## Practice
+
+- Create `df2 <- data.frame(a = 1:20, b = 0:19*2,` `c = sample(101:200,20,replace=TRUE))`
+- What is the average of `c`?
+- What is the sum of `a` times `b`?
+- Did you get any values of `c` 103 or below? (make a logical)
+- What is on the 8th row of `b`?
+- How many rows have `b` above 10 AND `c` below 150?
+
+## Practice Answers
+
+```{r, echo = FALSE, eval = TRUE}
+df2 <- data.frame(a = 1:20, b = 0:19*2, c = sample(101:200,20,replace=TRUE))
+```
+```{r, echo=TRUE, eval=FALSE}
+mean(df2$c)
+sum(df2$a*df2$b)
+sum(df2$c <= 103) > 0
+df2$b[8]
+sum(df2$b > 10 & df2$c < 150)
+```
+
+```{r, echo=FALSE, eval=TRUE}
+mean(df2$c)
+sum(df2$a*df2$b)
+sum(df$c <= 103) > 0
+df2$b[8]
+sum(df2$b > 10 & df2$c < 150)
+```
+
+## The Importance of Rows
+
+- So far we've basically just taken data frames and pulled the vectors (columns) back out
+- So... why not just stick with the vectors?
+- Because before long we're not just going to be interested in the columns one at a time
+- We'll want to keep track of each *row* - each row is an observation. The same observation!
+
+## The Importance of Rows
+
+- Going back to `df`, that fourth row says that
+    - The person in the fourth position...
+    - Says hello by saying "Yo"
+    - And has no kids
+- We're going to want to keep that straight when we want to, say, look at the relationship between having kids and your position in the race.
+- Or how the number of kids relates to how you say hello!
+
+```{r, echo=FALSE, eval=TRUE}
+df
+```
+
+## Working With Data Frames
+
+- Not to mention, we can manipulate data frames and tibbles!
+- Let's figure out how we can:
+    - Create new variables
+    - Change variables
+    - Rename variables
+- It's very common that you'll have to work with data a little before analyzing it
+
+## Creating New Variables
+
+- Easy! data.frames are just lists of vectors
+- So create a vector and tell R where in that list to stick it!
+- Use descriptive names so you know what the variable is
+
+```{r, echo=TRUE}
+df$State <- c('Alaska','California','California','Maine','Florida')
+df
+```
+
+## Our Approach - DPLYR and Tidyverse
+
+- That's the base-R way to do it, anyway
+- We're going to be using *dplyr* (think pliers) for data manipulation instead
+- dplyr syntax is inspired by SQL - so learning dplyr will give you a leg up if you want to learn SQL later. Plus it's just better.
+
+## Packages
+
+- tidyverse isn't a part of base R. It's in a package, so we'll need to install it
+- We can install packages using `install.packages('nameofpackage')`
+
+```{r, echo=TRUE, eval=FALSE}
+install.packages('tidyverse')
+```
+
+- We can then check whether it's installed in the Packages tab
+
+## Packages
+
+- Before we can use it we must then use the `library()` command to open it up
+- We'll need to run `library()` for it again every time we open up R if we want to use the package
+
+```{r, echo=TRUE, eval=FALSE}
+library(tidyverse)
+```
+
+- There are literally thousands of useful packages for R, and we're going to be using a few! Tidyverse will just be our first of many
+- Google R package X to look for packages that do X.
+
+
+## Varable creation with dplyr
+
+- The *mutate* command will "mutate" our data frame to have a new column in it. We can then overwrite it.
+- The pipe `%>%` says "take df and send it to that mutate command to use"
+- Or we can stick the data frame itself in the `mutate` command
+
+```{r, echo=TRUE, eval=FALSE}
+library(tidyverse)
+df <- df %>%
+  mutate(State = c('Alaska','California','California','Maine','Florida'))
+df <- mutate(df,State = c('Alaska','California','California','Maine','Florida'))
+```
+
+```{r, echo=FALSE, eval=TRUE}
+df <- df %>%
+  mutate(State = c('Alaska','California','California','Maine','Florida'))
+```
+
+## Creating New Variables
+
+- We can use all the tricks we already know about creating vectors
+- We can create multiple new variables in one mutate command
+
+```{r, echo=TRUE}
+df <- df %>% mutate(MoreThanTwoKids = NumberofKids > 2,
+                    One = 1,
+                    KidsPlusPosition = NumberofKids + RacePosition)
+df
+```
+
+## Manipulating Variables
+
+- We can't really *change* variables, but we sure can overwrite them!
+- We can drop variables with `-` in the dplyr `select` command
+- Note we chain multiple dplyr commands with `%>%`
+
+```{r, echo=TRUE}
+df <- df %>% 
+  select(-KidsPlusPosition,-WayTheySayHi,-One) %>%
+  mutate(State = as.factor(State),
+         RacePosition = RacePosition - 1)
+df$State[3] <- 'Alaska'
+str(df)
+```
+
+## Renaming Variables
+
+- Sometimes it will make sense to change the names of the variables we have.
+- Names are stored in `names(df)` which we can edit directly
+- Or the `rename()` command in dplyr has us covered
+
+```{r, echo=TRUE}
+names(df)
+#names(df) <- c('Pos','Num.Kids','State','mt2Kids')
+df <- df %>% rename(Pos = RacePosition, Num.Kids=NumberofKids,
+                    mt2Kids = MoreThanTwoKids)
+names(df)
+```
+
+
+## tidylog
+
+- Protip: after loading the tidyverse, also load the `tidylog` package. This will tell you what each step of your dplyr command does!
+
+```{r, echo=TRUE, eval=FALSE}
+library(tidyverse)
+library(tidylog)
+df <- df %>% mutate(Pos = Pos + 1,
+                    Num.Kids = 10)
+```
+```{r, echo=FALSE, eval=TRUE}
+library(tidylog, warn.conflicts=FALSE, quietly=TRUE)
+df <- df %>% mutate(Pos = Pos + 1,
+                    Num.Kids = 10)
+detach("package:tidylog", unload=TRUE)
+```
+
+## Practice
+
+- Create a data set `data` with three variables: `a` is all even numbers from 2 to 20, `b` is `c(0,1)` over and over, and `c` is any ten-element numeric vector of your choice.
+- Rename them to `EvenNumbers`, `Treatment`, `Outcome`.
+- Add a logical variable called Big that's true whenever EvenNumbers is greater than 15
+- Increase Outcome by 1 for all the rows where Treatment is 1.
+- Create a logical AboveMean that is true whenever Outcome is above the mean of Outcome.
+- Display the data structure
+
+## Practice Answers
+
+```{r, echo=TRUE, eval=FALSE}
+data <- data.frame(a = 1:10*2,
+                   b = c(0,1),
+                   c = sample(1:100,10,replace=FALSE)) %>%
+  rename(EvenNumbers = a, Treatment = b, Outcome = c)
+
+data <- data %>%
+  mutate(Big = EvenNumbers > 15,
+         Outcome = Outcome + Treatment,
+         AboveMean = Outcome > mean(Outcome))
+str(data)
+```
+
+## Other Ways to Get Data
+
+- Of course, most of the time we aren't making up data
+- We get it from the real world!
+- Two main ways to do this are the `data()` function in R
+- Or reading in files, usually with one of the `read` commands like `read.csv()`
+
+## data()
+
+- R has many baked-in data sets, and more in packages!
+- Just type in `data(` and see what options it autocompletes
+- We can load in data and look at it
+- Many of these data sets have `help` files too
+
+```{r, echo=TRUE, eval=FALSE}
+data(LifeCycleSavings)
+help(LifeCycleSavings)
+head(LifeCycleSavings)
+```
+
+```{r, echo=FALSE,eval=TRUE}
+data(LifeCycleSavings)
+head(LifeCycleSavings)
+```
+
+
+## read
+
+- Often there will be data files on the internet or your computer
+- You can read this in with one of the many `read` commands, like `read.csv`
+- CSV is a very basic spreadsheet format stored in a text file, you can create it from Excel or Sheets (or just write it)
+- There are different `read` commands for different file types
+- Make sure your working directory is set to where the data is!
+- Documentation will usually be in a different file
+
+```{r, echo=TRUE, eval=FALSE}
+datafromCSV <- read.csv('mydatafile.csv')
+```
+
+## Practice
+
+- Use `data()` to open up a data set - any data set (although it should be in `data.frame` or `tibble` form - try again if you get something else)
+- Use `str()` and `help()` to examine that data set
+    - What is it data of (help file)? How was it collected and what do the variables represent?
+    - What kinds of variables are in there and what kinds of values do they have (`str()` and `head()`)?
+- Create a new variable using the variables that are already in there
+- Take a mean of one of the variables
+- Rename a variable to be more descriptive based on what you saw in `help()`.

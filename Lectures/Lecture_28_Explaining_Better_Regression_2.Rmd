@@ -1,0 +1,375 @@
+---
+title: "Lecture 28 Explaining Better - Regression Part 2"
+author: "Nick Huntington-Klein"
+date: "April 4, 2019"
+output:   
+  revealjs::revealjs_presentation:
+    theme: solarized
+    transition: slide
+    self_contained: true
+    smart: true
+    fig_caption: true
+    reveal_options:
+      slideNumber: true
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE)
+library(tidyverse)
+library(dagitty)
+library(ggdag)
+library(ggthemes)
+library(Cairo)
+theme_set(theme_gray(base_size = 15))
+```
+
+## Final Exam
+
+- Reminder of good review material: all the homeworks, end-of-lecture practice slides, the midterms
+- Today we'll also be revisiting some of the programming bits we haven't done in a while
+- We did just do a whole review of causal inference, too. May want to check back in on that just in case
+- You'll be fine!
+
+## Today
+
+- We'll be talking briefly about how all of the causal inference methods we've done work in regression
+- Plus, we'll be talking about some ways that people in other fields explain one variable with another
+- Just a little peek into *what's out there!*
+- Then we'll do a little programming recap
+
+## Causal Inference with Regression
+
+- Remember, regression is about explaining one variable with another by *fitting a line*
+- Typically a straight line, but doesn't have to be
+- So instead of taking a mean within a particular range and having a "stair-step" kind of thing, we have a line that describes what we expect the mean of `Y` to be for any given value of `X`
+
+## Causal Inference with Regression
+
+```{r, echo=FALSE, fig.width=7,fig.height=5}
+df <- tibble(x = runif(1000)) %>%
+  mutate(y = x + rnorm(1000)) %>%
+  arrange(x) %>%
+  group_by(cut(x,breaks=20)) %>%
+  mutate(y.mean = mean(y)) %>%
+  ungroup()
+
+ggplot(df,aes(x=x,y=y,color='Raw'))+geom_point(alpha=.2)+
+  geom_line(aes(x=x,y=y.mean,color='Our Method'),size=1)+
+  geom_smooth(aes(color='Regression'),method='lm',se=FALSE)+
+  labs(x='X',y='Y')+
+  scale_color_manual(values=c('Raw'='black','Our Method'='blue','Regression'='red'))
+```
+
+## Causal Inference with Regression
+
+- We're still *explaining*, it's just a different shape. So everything transfers over pretty well!
+- You can see how it's less sensitive to random noise in the data (good, relative to our method), and lets us easily calculate standard errors (good, and something you'll do in future classes), but is also reliant on the shape that the data takes (bad)
+- As another note, when our `X` is a logical or a factor, regression and our method are *exactly the same*! This will make doing most of our methods easy!
+
+## Fixed Effects
+
+- So, controlling for a factor, or doing *fixed effects*? No difference (although with regression usually we'd get the effect in the reg, not with correlation)
+
+```{r, echo=TRUE}
+library(Ecdat)
+data(Airline)
+
+# Our method
+AirlineOurMethod <- Airline %>% group_by(airline) %>%
+  mutate(output.r = output - mean(output),
+         cost.r = cost - mean(cost))
+AirlineReg <- Airline %>%
+  mutate(output.reg = residuals(lm(output~factor(airline))),
+         cost.reg = residuals(lm(cost~factor(airline))))
+
+c(cor(AirlineOurMethod$output.r,AirlineOurMethod$cost.r),
+  cor(AirlineReg$output.reg,AirlineReg$cost.reg))
+```
+
+## Difference-in-Differences
+
+- Same with difference-in-difference!
+
+```{r, echo = FALSE}
+load('mariel.RData')
+df <- df %>% 
+  #Take out Cubans
+  filter(!(ethnic == 5),
+         #Remove NILF
+         !(esr %in% c(4,5,6,7))) %>%
+  #Calculate hourly wage
+  mutate(hourwage=earnwke/uhourse,
+         #and unemp
+         unemp = esr == 3) %>%
+  #no log problems
+  filter((hourwage > 2 | is.na(hourwage)),(uhourse > 0 | is.na(uhourse))) %>%
+  #adjust for inflation to 1980 prices
+  mutate(hourwage = case_when(
+    year==79 ~ hourwage/.88,
+    year==81 ~ hourwage/1.1,
+    year==82 ~ hourwage/1.17,
+    year==83 ~ hourwage/1.21,
+    year==84 ~ hourwage/1.26,
+    year==85 ~ hourwage/1.31
+  ))
+
+#Take the log of wage and create our "after treatment" and "treated group" variables
+df <- mutate(df,lwage = log(hourwage),
+             after = year >= 81,
+             miami = smsarank == 26)
+```
+
+```{r, echo=TRUE, eval=FALSE}
+load('mariel.RData')
+#(some data-cleaning omitted here, see the code for the slides)
+#Then we can do our difference in difference with our method
+means <- df %>% group_by(after,miami) %>% summarize(lwage = mean(lwage),unemp=mean(unemp))
+(means$lwage[4] - means$lwage[2]) - (means$lwage[3]-means$lwage[1])
+
+#or by regression, using an "interaction term"
+lm(lwage~after*miami,data=df)
+```
+
+```{r, echo=FALSE, eval=TRUE}
+#Take the log of wage and create our "after treatment" and "treated group" variables
+df <- mutate(df,lwage = log(hourwage),
+             after = year >= 81,
+             miami = smsarank == 26)
+
+#Then we can do our difference in difference!
+means <- df %>% group_by(after,miami) %>% summarize(lwage = mean(lwage,na.rm=TRUE),unemp=mean(unemp))
+
+(means$lwage[4] - means$lwage[2]) - (means$lwage[3]-means$lwage[1])
+
+#or by regression, using an "interaction term"
+lm(lwage~after*miami,data=df)
+```
+
+## Regression Discontinuity
+
+- We saw last time how this works - we fit a line on either side of the cutoff and see how that line jumps at the cutoff
+
+```{r, echo=FALSE, eval=TRUE, fig.width=7, fig.height=5}
+set.seed(1000)
+rdd <- tibble(test = runif(300)*100) %>%
+  mutate(GATE = test >= 75,
+         above = test >= 75) %>%
+  mutate(earn = runif(300)*40+10*GATE+test/2)
+
+rdd <- rdd %>%
+  mutate(above = test >= 75,
+         zeroedtest = test-75)
+
+rdmeans <- rdd %>% filter(between(test,73,77)) %>% 
+  group_by(above) %>%
+  summarize(E = mean(earn))
+
+
+ggplot(rdd,aes(x=test,y=earn,color='Raw'))+geom_point()+
+  geom_vline(aes(xintercept=75),col='blue')+
+  labs(x='Test Score',
+       y='Earnings')+
+  geom_smooth(aes(color='Regression'),method='lm',se=FALSE,formula=y~x+I(x>=75)+x*I(x>=75))+
+  geom_segment(aes(x=73,xend=75,y=rdmeans$E[1],yend=rdmeans$E[1],color='Our Method'),size=2)+
+  geom_segment(aes(x=75,xend=77,y=rdmeans$E[2],yend=rdmeans$E[2],color='Our Method'),size=2)+
+  scale_color_manual(values=c('Raw'='black','Regression'='red','Our Method'='blue'))
+```
+
+## Instrumental Variables
+
+- As always, we're using only what we can explain with `Z`. Just now, we explain it using regression!
+- Conveniently, regression lets us skip the "explain Y with Z" step and handles that by itself automatically
+- I do a lil statistical magic to make the correlation and regression slope comparable, don't worry that the next example doesn't give the same result as last time
+
+## Instrumental Variables
+
+```{r, echo=TRUE, eval=FALSE}
+library(AER)
+data(CigarettesSW)
+
+#data-cleaning code to perform our version of IV omitted here
+cor(CigarettesSW$priceexp,CigarettesSW$packsexp)
+
+#And now with regression
+data(CigarettesSW)
+x.explained.with.z <- predict(lm(packs~cigtax,data=CigarettesSW))
+lm(price~x.explained.with.z,data=CigarettesSW)
+```
+
+```{r, echo=FALSE, eval = TRUE}
+library(AER)
+data(CigarettesSW)
+
+CigarettesSW <- CigarettesSW %>%
+  mutate(cigtax = taxs-tax) %>%
+  mutate(price = price/cpi,
+         cigtax = cigtax/cpi) %>%
+  mutate(price = (price - mean(price))/sd(price),
+         packs = (packs - mean(packs))/sd(packs)) %>%
+  group_by(cut(cigtax,breaks=7)) %>%
+  summarize(priceexp = mean(price),
+         packsexp = mean(packs)) %>%
+  ungroup()
+
+cor(CigarettesSW$priceexp,CigarettesSW$packsexp)
+
+data(CigarettesSW)
+CigarettesSW <- CigarettesSW %>%
+  mutate(cigtax = taxs-tax) %>%
+  mutate(price = price/cpi,
+         cigtax = cigtax/cpi) %>%
+  mutate(price = (price - mean(price))/sd(price),
+         packs = (packs - mean(packs))/sd(packs))
+x.explained.with.z <- predict(lm(packs~cigtax,data=CigarettesSW))
+lm(price~x.explained.with.z,data=CigarettesSW)
+```
+
+## Machine Learning
+
+- You may be familiar with the terms *machine learning* or *big data*
+- These seem like big, scary, magical things, but most of the time it's just different ways of explaining one variable with another (or many others)
+- In fact, a lot of machine learning methods come down to just slightly fancier versions of regression or what we've been doing
+
+## Machine Learning
+
+- Economists are just starting to use these methods, largely because they aren't built with a focus on uncovering the data-generating process, they just like to predict non-causally
+- (although there is recent causal work - check out Susan Athey)
+- But they're great ways of incorporating *lots and lots and lots* of control variables or predictors
+- For example, what if you have 10000 potential control variables? Which do you use? Machine learning can help with that, or even let you use all of them at once!
+
+## Random Forests
+
+- Let's discuss one machine learning tool - random forests
+- Random forests explain `Y` with `X` in a way very similar to *our* method - it breaks up `X` into bins and takes the average of `Y` within each bin. It doesn't fit a line.
+- In its terminology, it's creating a "tree" with "branches" to show the bins
+
+## Random Forests
+
+- However, you don't *pick* the bins, it tries *every possible combination of bins* and picks the one that (to simplify) explains the most variance
+- Plus, it's capable of not just picking the best bins, but if you have lots of variables, picking *which variables* to split into bins
+- We won't go too into detail of how it works, but you can see it in action (albeit only with one variable, not showing its full strength...)
+
+## Random Forests
+
+- Let's predict the price of gold using the price of silver
+
+```{r, echo=TRUE}
+library(AER)
+data(GoldSilver)
+GoldSilver <- as.data.frame(GoldSilver)
+library(randomForest)
+rf <- randomForest(gold~silver,data=GoldSilver)
+
+GoldSilver <- GoldSilver %>%
+  mutate(rf.predict = predict(rf),
+         reg.predict = predict(lm(gold~silver,data=GoldSilver)))
+```
+
+## Random Forests
+
+```{r, echo=FALSE, eval=TRUE, fig.width=8, fig.height=5}
+ggplot(GoldSilver,aes(x=silver,y=gold,color='Raw'))+geom_point(alpha=.2)+
+  labs(x='Silver Price',y='Gold Price')+
+  scale_color_manual(values=c('Raw'='black'))
+```
+
+## Random Forests
+
+- RF is a little messier, but fits that weird shape better
+
+```{r, echo=FALSE, eval=TRUE, fig.width=8, fig.height=5}
+ggplot(GoldSilver,aes(x=silver,y=gold,color='Raw'))+geom_point(alpha=.2)+
+  geom_point(aes(x=silver,y=rf.predict,color='Rand. Forest'),alpha=.5)+
+  geom_point(aes(x=silver,y=reg.predict,color='Regression'))+
+  labs(x='Silver Price',y='Gold Price')+
+  scale_color_manual(values=c('Raw'='black','Regression'='blue','Rand. Forest'='red'))
+```
+
+## Programming Practice
+
+- Create a data frame `dat` with:
+- `a` all even numbers from 2 to 100 *twice*, i.e. 2, 2, 4, 4... (hint: `rep()`)
+- `b` randomly selected from 'Hi', 'Hello', and 'Goodbye'. Make it a factor.
+- Then, `arrange()` the data by `a`
+- Add up all the values of `a`
+- Count how many observations are 'Hi' or 'Hello' using `%in%`
+- `mutate` to create `c` as a logical equal to 1 if `b` is 'Goodbye' OR if `a > 90` OR if `a <= 10`
+- Calculate the proportion of variance in `c` explained by `b`
+
+## Programming Practice Answers
+
+```{r, echo=TRUE, eval=FALSE}
+dat <- data.frame(a = rep(1:50*2,2),
+                  b = sample(c('Hi','Hello','Goodbye'),100,replace=T)) %>%
+  arrange(a) %>%
+  mutate(c = (b == 'Goodbye') | (a > 90) | (a <= 10))
+
+sum(dat$a)
+sum(dat$b %in% c('Hi','Hello'))
+
+dat <- dat %>% group_by(b) %>% mutate(c.res = c - mean(c))
+
+1 - var(dat$c.res)/var(dat$c)
+```
+
+## Programming Practice
+
+- `x <- rexp(3000)`
+- Plot the density of `x`, with proper labels
+- Based on the density plot, would you expect `mean(x)` or `median(x)` to be higher?
+- Add the median and mean as vertical `abline`s in different colors to your plot to check
+- Create a text `stargazer` table to describe `as.data.frame(x)`
+- Separately, use `quantile` to get the 10th, 20th, ... 100th percentile of `x`
+- What kind of real-world variable might be distributed like `x`?
+
+## Programming Practice Answers
+
+```{r, echo=TRUE, eval=FALSE}
+x <- rexp(3000)
+
+plot(density(x),xlab='X',ylab='Density',main='Distribution of X')
+#Because we have a small number of huge values, the mean should be larger
+abline(v=mean(x),col='blue')
+abline(v=median(x),col='red')
+
+library(stargazer)
+stargazer(as.data.frame(x),type='text')
+
+quantile(x,c(1:10/10))
+
+#Something unequally distributed, with a few big winners, like income or wealth, might be distributed like x
+```
+
+## Programming Practice
+
+- Take `dat` from the first practice, and add `d = rnorm(100) + .3*a` (may need to ungroup())
+- Create a `table` and a `prop.table` for `b`
+- Then, create a `barplot` for the count of `b`, and one for the proportion
+- Create a density plot of `d` when `c == FALSE` and use `lines()` to overlay different-colored density when `c == TRUE`
+- Calculate the difference in means of `d` between `c == FALSE` and `c == TRUE`
+- Create a plot with `a` on the x-axis and `d` on the y-axis
+- Use `cut(,breaks=8)` to get prop. of var. of `d` explained by `a`
+
+
+## Programming Practice Answers
+
+```{r, echo=TRUE, eval=FALSE}
+dat <- dat %>% ungroup() %>% mutate(d = rnorm(100) + .3*a)
+
+table(dat$b)
+prop.table(table(dat$b))
+barplot(table(dat$b))
+barplot(prop.table(table(dat$b)))
+
+plot(density((filter(dat,c==FALSE))$d),col='red')
+lines(density((filter(dat,c==TRUE))$d),col='blue')
+
+meandiff <- dat %>% group_by(c) %>% summarize(d = mean(d))
+meandiff$d[2] - meandiff$d[1]
+
+plot(dat$a,dat$d)
+
+dat <- dat %>% group_by(cut(a,breaks=8)) %>% mutate(d.res = d - mean(d))
+1 - var(dat$d.res)/var(dat$d)
+```

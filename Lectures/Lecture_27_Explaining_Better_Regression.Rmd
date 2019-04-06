@@ -1,0 +1,275 @@
+---
+title: "Lecture 27 Explaining Better - Regression"
+author: "Nick Huntington-Klein"
+date: "April 3, 2019"
+output:   
+  revealjs::revealjs_presentation:
+    theme: solarized
+    transition: slide
+    self_contained: true
+    smart: true
+    fig_caption: true
+    reveal_options:
+      slideNumber: true
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE)
+library(tidyverse)
+library(dagitty)
+library(ggdag)
+library(ggthemes)
+library(Cairo)
+theme_set(theme_gray(base_size = 15))
+```
+
+## Final Exam
+
+- Combination of both programming and causal inference methods
+- Everything is fair game
+- There will also be a subjective question in which you take a causal question, develop a diagram, and perform the analysis with data I give you
+- Slides and dagitty will be available, no other internet
+
+## This Week
+
+- We'll be doing a little bit of review this last week
+- And also talking about other ways of *explaining* data beyond what we've done
+- This last week of material *will not be on the final* but it will be great prep for any upcoming class you take on this, or if you want to apply the ideas you've learned in class in the real world
+
+## Explaining Better
+
+- So far, all of our methods have had to do with *explaining* one variable with another
+- After all, causal inference is all about looking at the effect of one variable on another
+- If that explanation is causally identified, we're good to go
+- Or, if that explanation is on a back door of what we're interested in, we'll explain what we can and take it out
+
+## Explaining Better
+
+- The way that we've been explaining `A` with `B` so far:
+- Take the different values of `B` (if it's continuous, use bins with `cut()`)
+- For observations with each of those different values, take the mean of `A`
+- That mean is the "explained" part, the rest is the "residual"
+
+## Explaining Better
+
+- Now, this is the basic idea of explaining - what value of `A` can we expect, given the value of `B` we're looking at?
+- But this isn't the only way to put that idea into action!
+
+## Regression
+
+- The way that explaining is done most of the time is with a method called *regression*
+- You might be familiar with regression if you've taken ISDS 361A
+- But here we're going to go more into detail on what it actually is and how it relates to causal inference
+
+## Regression
+
+- The idea of regression is the same as our approach to explaining - for different values of `B`, predict `A`
+- But what's different? In regression, you impose a little more structure on that prediction
+- Specifically, when `B` is continuous, you require that the relationship between `B` and `A` follows a *straight line*
+
+## Regression
+
+- Let's look at wages and experience in Belgium
+
+```{r, echo=TRUE}
+library(Ecdat)
+data(Bwages)
+
+#Explain wages with our normal method
+Bwages <- Bwages %>% group_by(cut(exper,breaks=8)) %>%
+  mutate(wage.explained = mean(wage)) %>% ungroup()
+
+#Explain wages with regression
+#lm(wage~exper) regresses wage on exper, and predict() gets the explained values
+Bwages <- Bwages %>% 
+  mutate(wage.reg.explained = predict(lm(wage~exper)))
+
+#What's in a regression? An intercept and a slope! Like I said, it's a line.
+lm(wage~exper,data=Bwages)
+```
+
+## Regression
+
+```{r, echo=FALSE, fig.width=8, fig.height=6}
+ggplot(filter(Bwages,wage<20),aes(x=exper,y=wage,color='Raw'))+geom_point(alpha=.1)+
+  labs(x='Experience',y='Wage')+
+  geom_point(aes(x=exper,y=wage.explained,color='Our Method'))+
+  geom_point(aes(x=exper,y=wage.reg.explained,color='Regression'))+
+  scale_color_manual(values=c('Raw'='black','Our Method'='red','Regression'='blue'))
+```
+
+## Regression
+
+- Okay, so it's the same thing but it's a straight line. Who cares?
+- Regression brings us some benefits, but also has some costs (there's always a tradeoff...)
+
+## Regression Benefits
+
+- It boils down the relationship to be much simpler to explain
+- Instead of reporting eight different means, I can just give an intercept and a slope!
+
+```{r, echo=FALSE}
+lm(wage~exper,data=Bwages)
+```
+
+- We can interpret this easily as "one more year of `exper` is associated with `r coef(lm(wage~exper,data=Bwages))[2]` higher wages"
+
+## Regression Benefits
+
+- This makes it much easier to explain using multiple variables at once
+- This is important when we're doing causal inference. If we want to close multiple back doors, we have to control for multiple variables at once. This is unwieldy with our approach
+- With regression we just add another dimension to our line and add another slope! As many as we want
+
+```{r, echo=FALSE}
+#Bwages appears to drop the sex variable in some versions? Let's make it up
+Bwages <- Bwages %>%
+  mutate(male = runif(1472) + (wage > mean(wage))*.04 >= .5)
+```
+
+```{r, echo=TRUE}
+lm(wage~exper+educ+male,data=Bwages)
+```
+
+## Regression Benefits
+
+- The fact that we're using a line means that we can use much more of the data
+- This increases our statistical power, and also reduces overfitting (remember that?)
+- For example, with regression discontinuity, we've been only looking just to the left and right of the cutoff
+- But this doesn't take into account the information we have about the trend of the variable *leading up to* the cutoff. Doing regression discontinuity with regression can!
+
+## Regression Benefits
+
+- Take this example from regression discontinuity
+
+```{r, echo=FALSE, eval=TRUE, fig.width=7, fig.height=5.5}
+set.seed(1000)
+rdd <- tibble(test = runif(300)*100) %>%
+  mutate(GATE = test >= 75,
+         above = test >= 75) %>%
+  mutate(earn = runif(300)*40+10*GATE+test/2)
+
+ggplot(rdd,aes(x=test,y=earn,color=GATE))+geom_point()+
+  geom_vline(aes(xintercept=75),col='red')+
+  labs(x='Test Score',
+       y='Earnings')
+```
+
+## Regression Benefits
+
+- Look how much more information we can take advantage of with regression
+
+```{r, echo=FALSE, eval=TRUE, fig.width=7, fig.height=5}
+rdd <- rdd %>%
+  mutate(above = test >= 75,
+         zeroedtest = test-75)
+
+rdmeans <- rdd %>% filter(between(test,73,77)) %>% 
+  group_by(above) %>%
+  summarize(E = mean(earn))
+
+
+ggplot(rdd,aes(x=test,y=earn,color='Raw'))+geom_point()+
+  geom_vline(aes(xintercept=75),col='blue')+
+  labs(x='Test Score',
+       y='Earnings')+
+  geom_smooth(aes(color='Regression'),method='lm',se=FALSE,formula=y~x+I(x>=75)+x*I(x>=75))+
+  geom_segment(aes(x=73,xend=75,y=rdmeans$E[1],yend=rdmeans$E[1],color='Our Method'),size=2)+
+  geom_segment(aes(x=75,xend=77,y=rdmeans$E[2],yend=rdmeans$E[2],color='Our Method'),size=2)+
+  scale_color_manual(values=c('Raw'='black','Regression'='red','Our Method'='blue'))
+```
+
+## Regression Cons
+
+- One con is that it masks what it's doing a bit - you have to learn its inner workings to really know how it operates, and what it's sensitive to
+- There are also some statistical situations in which it can give strange results
+- For example, problem is that it fits a straight line
+- That means that if your relationship DOESN'T follow a straight line, you'll get bad results!
+
+## Regression Cons
+
+```{r echo=FALSE, fig.width=8, fig.height=6}
+quaddata <- tibble(x = rnorm(1000)) %>%
+  mutate(y = x + x^2 + rnorm(1000)) %>%
+  group_by(cut(x,breaks=10)) %>%
+  mutate(y.exp = mean(y)) %>%
+  ungroup() %>%
+  mutate(y.exp.reg = predict(lm(y~x)))
+
+ggplot(quaddata,aes(y=y,x=x,color='Raw'))+geom_point(alpha=.2)+
+  geom_point(aes(x=x,y=y.exp,color='Our Method'))+
+  geom_point(aes(x=x,y=y.exp.reg,color='Regression'))+
+  scale_color_manual(values=c('Raw'='black','Our Method'='red','Regression'='blue'))
+```
+
+## Regression Cons
+
+- That said, we're fitting a line, but it doesn't *necessarily* need to be a straight line. Let's add a quadratic term!
+
+```{r, echo=TRUE}
+lm(y~x,data=quaddata)
+lm(y~x+I(x^2),data=quaddata)
+```
+
+## Regression Cons
+
+```{r echo=FALSE, fig.width=8, fig.height=6}
+quaddata <- quaddata %>%
+  mutate(y.exp.reg = predict(lm(y~x+I(x^2))))
+
+ggplot(quaddata,aes(y=y,x=x,color='Raw'))+geom_point(alpha=.2)+
+  geom_point(aes(x=x,y=y.exp,color='Our Method'))+
+  geom_point(aes(x=x,y=y.exp.reg,color='Quadratic Reg.'))+
+  scale_color_manual(values=c('Raw'='black','Our Method'='red','Quadratic Reg.'='blue'))
+```
+
+## Regression
+
+- In fact, for these reasons, despite the cons, all the methods we've done so far (except matching) are commonly done with regression
+- We'll talk about this more next time
+- For now, let's do a simulation exercise with regression
+- I want to reiterate that regression *will not be on the final*
+- But this will let us practice our simulation skills, which we haven't done in a minute, and we may as well do it with regresion
+- Any remaining time we'll do other final prep
+
+## Simulation Practice
+
+- Let's compare regression and our method in their ability to pick up a *tiny* positive effect of `X` on `Y`
+- We'll be counting how often each of them finds that positive result
+- Create blank vectors `reg.pos <- c(NA)` and `our.pos <- c(NA)` to store results
+- Create a `for (i in 1:10000) {` loop
+- Then, inside that loop...
+
+## Simulation Practice
+
+- Create a tibble `df` with `x = runif(1000)` and `y = .01*x + rnorm(1000)`
+- Perform regression and get the slope on `x`: `coef(lm(y~x,data=df))[2]`. Store `0` in `reg.pos[i]` if this is negative, and `1` if it's positive
+- Explain `y` using `x` with our method and `cut(x,breaks=2)`. Use `summarize` and store the means in `our.df`
+- Store `0` in `our.pos[i]` if `our.df$y[2] - our.df$y[1]` is negative, and `1` if it's positive
+- See which method more often gets a positive result
+
+## Simulation Practice Answers
+
+```{r, echo=FALSE}
+set.seed(1234)
+```
+
+```{r, echo=TRUE}
+reg.pos <- c(NA)
+our.pos <- c(NA)
+
+for (i in 1:10000) {
+  df <- tibble(x = runif(1000)) %>%
+    mutate(y = .01*x + rnorm(1000))
+  
+  reg.pos[i] <- coef(lm(y~x,data=df))[2] >= 0
+  
+  our.df <- df %>% group_by(cut(x,breaks=2)) %>%
+    summarize(y = mean(y))
+  
+  our.pos[i] <- our.df$y[2] - our.df$y[1] > 0
+}
+
+mean(reg.pos)
+mean(our.pos)
+```

@@ -1,0 +1,264 @@
+---
+title: "Lecture 15 Drawing Causal Diagrams"
+author: "Nick Huntington-Klein"
+date: "February 27, 2019"
+output:   
+  revealjs::revealjs_presentation:
+    theme: solarized
+    transition: slide
+    self_contained: true
+    smart: true
+    fig_caption: true
+    reveal_options:
+      slideNumber: true
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE)
+library(tidyverse)
+library(dagitty)
+library(ggdag)
+library(gganimate)
+library(ggthemes)
+library(Cairo)
+theme_set(theme_gray(base_size = 15))
+```
+
+## Recap
+
+- Last time we covered the concept of "controlling" or "adjusting" for a variable
+- And we knew what to control for because of our causal diagram
+- A causal diagram is your *model* of what you think the data-generating process is
+- Which you can use to figure out how to *identify* particular arrows of interest
+
+## Today
+
+- Today we're going to be working through the process of how to *make* causal diagrams
+- This will require us to *understand* what is going on in the real world
+- (especially since we won't know the right answer, like when we simulate our own data!)
+- And then represent our understanding in the diagram
+
+## Remember
+
+- Our goal is to *represent the underlying data-generating process*
+- This is going to require some common-sense thinking
+- As well as some economic intuition
+- In real life, we're not going to know what the right answer is
+- Our models will be wrong. We just need them to be useful
+
+## Steps to a Causal Diagram
+
+1. Consider all the variables that are likely to be important in the data generating process (this includes variables you can't observe)
+2. For simplicity, combine them together or prune the ones least likely to be important
+3. Consider which variables are likely to affect which other variables and draw arrows from one to the other
+4. (Bonus: Test some implications of the model to see if you have the right one)
+
+## Some notes
+
+- Drawing an arrow requires a *direction*. You're making a statement!
+- Omitting an arrow is a statement too - you're saying neither causes the other (directly)
+- If two variables are correlated but neither causes the other, that means they're both caused by some other (perhaps unobserved) variable that causes both - add it!
+- There shouldn't be any *cycles* - You shouldn't be able to follow the arrows in one direction and end up where you started
+    - If there *should* be a feedback loop, like "rich get richer", distinguish between the same variable at different points in time to avoid it
+    
+## So let's do it!
+
+- Let's start with an econometrics classic: what is the causal effect of an additional year of education on earnings?
+- That is, if we reached in and made someone get one more year of education than they already did, how much more money would they earn?
+
+## 1. Listing Variables
+
+- We can start with our two main variables of interest:
+    - Education [we call this the "treatment" or "exposure" variable]
+    - Earnings [the "outcome"]
+    
+## 1. Listing Variables
+
+- Then, we can add other variables likely to be relevant
+- Focus on variables that are likely to cause or be caused by treatment
+- ESPECIALLY if they're related both to the treatment and the outcome
+- They don't have to be things you can actually observe/measure
+- Variables that affect the outcome but aren't related to anything else aren't really important (you'll see why next week)
+
+## 1. Listing Variables
+
+- So what can we think of?
+    - Ability
+    - Socioeconomic status
+    - Demographics
+    - Phys. ed requirements
+    - Year of birth
+    - Location
+    - Compulsory schooling laws
+    - Job connections
+
+## 2. Simplify
+
+- There's a lot going on - in any social science system, there are THOUSANDS of things that could plausibly be in your diagram
+- So we simplify. We ignore things that are likely to be only of trivial importance [so Phys. ed is out!]
+- And we might try to combine variables that are very similar or might overlap in what we measure [Socioeconomic status, Demographics, Location -> Background]
+- Now: Education, Earnings, Background, Year of birth, Location, Compulsory schooling, and Job Connections
+
+## 3. Arrows!
+
+- Consider which variables are likely to cause which others
+- And, importantly, *which arrows you can leave out*
+- The arrows you *leave out* are important to think about - you sure there's no effect? - and prized! You need those NON-arrows to be able to causally identify anything.
+
+## 3. Arrows
+
+- Let's start with our effect of interest
+- Education causes earnings
+
+```{r CairoPlot, dev='CairoPNG', echo=FALSE, fig.width=7, fig.height=5}
+set.seed(1000)
+dag <- dagify(Earn~Ed) %>% tidy_dagitty()
+ggdag(dag,node_size=20)
+```
+
+## 3. Arrows
+
+- Remaining: Background, Year of birth, Location, Compulsory schooling, and Job Connections
+- All of these but Job Connections should cause Ed
+
+```{r, dev='CairoPNG', echo=FALSE, fig.width=7, fig.height=5}
+set.seed(1000)
+dag <- dagify(Earn~Ed,
+              Ed~Bgrd+Year+Loc+Comp) %>% tidy_dagitty()
+ggdag(dag,node_size=20)
+```
+
+## 3. Arrows
+
+- Seems like Year of Birth, Location, and Background should ALSO affect earnings. Job Connections, too.
+
+```{r, dev='CairoPNG', echo=FALSE, fig.width=7, fig.height=5}
+set.seed(1000)
+dag <- dagify(Earn~Ed+Bgrd+Year+Loc+JobCx,
+              Ed~Bgrd+Year+Loc+Comp) %>% tidy_dagitty()
+ggdag(dag,node_size=20)
+```
+
+## 3. Arrows
+
+- Job connections, in fact, seems like it should be caused by Education
+
+```{r, dev='CairoPNG', echo=FALSE, fig.width=7, fig.height=5}
+set.seed(1000)
+dag <- dagify(Earn~Ed+Bgrd+Year+Loc+JobCx,
+              Ed~Bgrd+Year+Loc+Comp,
+              JobCx~Ed) %>% tidy_dagitty()
+ggdag(dag,node_size=20)
+```
+
+## 3. Arrows
+
+- Location and Background are likely to be related, but neither really causes the other. Make unobservable U1 and have it cause both!
+
+```{r, dev='CairoPNG', echo=FALSE, fig.width=7, fig.height=5}
+set.seed(1000)
+dag <- dagify(Earn~Ed+Bgrd+Year+Loc+JobCx,
+              Ed~Bgrd+Year+Loc+Comp,
+              JobCx~Ed,
+              Loc~U1,
+              Bgrd~U1) %>% tidy_dagitty()
+ggdag(dag,node_size=20)
+```
+
+## Causal Diagrams
+
+- And there we have it!
+- Perhaps a little messy, but that can happen
+- We have modeled our idea of what the data generating process looks like
+
+## Causal Diagrams
+
+- The nice thing about these diagrams is that we can test (some of) our assumptions!
+- We can't test assumptions about which direction the arrows go, but notice that the diagram implies that certain relationships WON'T be there!
+- For example, in our diagram, all relationships between `Comp` and `JobCx` go through `Ed`
+- So if we control for `Ed`, `cor(Comp,JobCx)` should be zero - we can test that! We'll do more of this later.
+
+## Dagitty.net
+
+- These graphs can be drawn by hand
+- Or we can use a computer to help
+- We will be using dagitty.net to draw these graphs
+- (You can also draw them with R code - see the slides, but you won't need to know this)
+
+## Dagitty.net
+
+- Go to dagitty.net and click on "Launch"
+- You will see an example of a causal diagram with nodes (variables) and arrows
+- Plus handy color-coding and symbols. Green triangle for exposure/treatment, and blue bar for outcome.
+- The green arrow is the "causal path" we'd like to *identify*
+
+## Dagitty.net
+
+- Go to Model and New Model
+- Let's recreate our Education and Earnings diagram
+- Put in Education as the exposure and Earnings as the outcome (you can use longer variable names than we've used here)
+
+## Dagitty.net
+
+- Double-click on blank space to add new variables.
+- Add all the variables we're interested in.
+
+```{r, dev='CairoPNG', echo=FALSE, fig.width=7, fig.height=5}
+set.seed(1000)
+dag <- dagify(Earn~Ed+Bgrd+Year+Loc+JobCx,
+              Ed~Bgrd+Year+Loc+Comp,
+              JobCx~Ed,
+              Loc~U1,
+              Bgrd~U1) %>% tidy_dagitty()
+ggdag(dag,node_size=20)
+```
+
+## Dagitty.net
+
+- Then, double click on some variable `X`, then once on another variable `Y` to get an arrow for `X -> Y`
+- Fill in all our arrows!
+
+```{r, dev='CairoPNG', echo=FALSE, fig.width=7, fig.height=5}
+set.seed(1000)
+dag <- dagify(Earn~Ed+Bgrd+Year+Loc+JobCx,
+              Ed~Bgrd+Year+Loc+Comp,
+              JobCx~Ed,
+              Loc~U1,
+              Bgrd~U1) %>% tidy_dagitty()
+ggdag(dag,node_size=20)
+```
+
+## Dagitty.net
+
+- Feel free to move the variables around with drag-and-drop to make it look a bit nicer
+- You can even drag the arrows to make them curvy
+
+
+## Dagitty.net
+
+- Next, we can classify some of our variables.
+- Hover over `U1` and tap the 'u' key to make Dagitty register it as unobservable
+
+## Dagitty.net
+
+- Now, look at all that red!
+- Dagitty uses red to show you that a variable is going to cause problems for us! Like `tech` did last lecture
+- We can tell Dagitty that we plan to adjust/control for these variables in our analysis by hovering over them and hitting the 'a' key
+- When there's no red, we've identified the green arrow we're interested in!
+
+## Dagitty.net
+
+- Notice that all Dagitty knows is what we told it about our model
+- And that was enough for it to tell us what we needed to adjust for to identify our effect!
+- That's not super complex computer magic, it's actually a fairly simple set of rules, which we'll go over next time.
+
+## Practice
+
+- Consider the causal question "does a longer night's sleep extend your lifespan?"
+
+1. List variables [think especially hard about what things might lead you to get a longer night's sleep]
+2. Simplify
+3. Arrows
+
+- Then, when you're done, draw it in Dagitty.net!

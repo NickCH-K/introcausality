@@ -1,0 +1,339 @@
+---
+title: "Lecture 10: Relationships Between Variables, Part 2"
+author: "Nick Huntington-Klein"
+date: "February 5, 2019"
+output:   
+  revealjs::revealjs_presentation:
+    theme: solarized
+    transition: slide
+    self_contained: true
+    smart: true
+    fig_caption: true
+    reveal_options:
+      slideNumber: true
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(gganimate)
+library(stargazer)
+library(Ecdat)
+theme_set(theme_gray(base_size = 15))
+```
+## Recap
+
+- Last time we talked about how to think about the relationship between two variables
+- We talked about *dependence* and *correlation*
+- As illustrated using proportion tables (`prop.table`), differences in means (`group_by() %>% summarize()`), correlation (`cor`), and graphically with scatterplots (`plot(xvar,yvar)`) and overlaid densities (`plot(density())` followed by `lines(density())`)
+
+## Today
+
+- We're going to be going much further into *explaining*
+- How can we use one variable to *explain* another and what does that mean?
+- One way to think about what we're doing is to translate "how does `X` explain `Y`" as "what would I expect `Y` to look like, given a certain value of `X`?"
+
+## Explanation
+
+- Why do we care?
+- Explaining is a very flexible way of understanding the relationship between two variables
+- Plus, it lets us put a magnitude on these relationships
+- "How much of the variation in earnings is *explained by* education?"
+- "How much of the variation in earnings is *not explained by* education?"
+
+## Explanation
+
+- Plus, this will end up being very important when we get to causality
+- Think back to this graph from last time:
+
+```{r, echo=TRUE, eval=TRUE,  fig.width=5, fig.height=3}
+addata <- read.csv('http://www.nickchk.com/ad_spend_and_gdp.csv')
+plot(addata$AdSpending,addata$GDP,
+     xlab='US Ad Spend/Year (Mil.)',ylab='US GDP (Bil.)')
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#THE GGPLOT2 WAY
+ggplot(addata,aes(x=AdSpending,y=GDP))+geom_point()+
+  xlab('Ad Spend/Year (Mil.)')+
+  ylab('US GDP (Bil.)')
+```
+
+
+## Explanation
+
+- We know that part of the reason for the relationship we see is *inflation*
+- Explanation lets us say things like "*not counting* the parts of ad spend and GDP that are *explained* by inflation, what is the relationship between ad spend and GDP?"
+- When we get into causality, this will let us isolate just the parts of the relationship we're interested in
+
+## Simple Explanation
+
+- So that's our goal - for different values of `X`, see what `Y` looks like.
+- There are *lots* of ways to do this - one of which is called *regression* and you'll see that in later classes
+- In this class we're going to focus on a very simple approach - simply taking the mean of `Y` for different values of `X`.
+
+## Simple Explanation
+
+- Basically, we're trying to do a simpler version of this:
+
+![Local Linear Regression](Animation_Local_Linear_Regression.gif)
+
+## Simple Explanation
+
+- We already know how to calculate these means - we can do it with `summarize()`
+- Let's use data on demographic info by county in `data(midwest)` and get the average poverty rate by county in each state
+
+```{r, echo=TRUE, eval=FALSE}
+library(tidyverse)
+data(midwest)
+midwest %>% group_by(state) %>% summarize(percbelowpoverty = mean(percbelowpoverty))
+```
+
+```{r, echo=FALSE, eval=TRUE}
+data(midwest)
+midwest %>% group_by(state) %>% summarize(percbelowpoverty = mean(percbelowpoverty))
+```
+
+
+## Simple Explanation
+
+- Now we know what we'd *expect* a county's poverty rate to be, based on what state it's in.
+- It will be useful for us to have this average in the data frame itself, which we can do by using `group_by()` leading into `mutate()` instead of `summarize()`
+
+```{r, echo=TRUE, eval=TRUE}
+midwest <- midwest %>% group_by(state) %>%
+  mutate(avebystate = mean(percbelowpoverty))
+head(select(midwest,state,county,percbelowpoverty,avebystate))
+```
+
+## Simple Explanation
+
+- `avebystate` now represents the part of poverty that is *explained by state*
+- Whatever's left over must be the part *unexplained by state*, a.k.a "the residual"
+
+```{r, echo=TRUE, eval=TRUE}
+midwest <- mutate(midwest,residual = percbelowpoverty - avebystate)
+head(select(midwest,state,county,percbelowpoverty,avebystate,residual))
+```
+
+## Graphically
+
+- For each value of state, we get the mean. Any deviation from that is the residual
+
+```{r, echo=FALSE, eval=TRUE, fig.width=7, fig.height=5}
+ggplot(midwest,aes(x=state,y=percbelowpoverty,color="Data"))+geom_point()+
+  stat_summary(aes(color="State Mean"),fun.y="mean",size = 15, geom = "point", shape= "-")+
+  xlab('State')+ylab('Percent Below Poverty')+
+  scale_color_manual(values=c('black','red'))
+```
+
+## Graphically
+
+```{r, echo=FALSE, eval=TRUE, fig.width=7, fig.height=5}
+animdata <- select(midwest,state,percbelowpoverty,residual)
+animdata <- rbind(
+  midwest %>% select(-residual) %>% mutate(time = "Raw Data"),
+  midwest %>% select(-percbelowpoverty) %>% rename(percbelowpoverty = residual) %>%
+    mutate(time = "Residuals")
+)
+p <- ggplot(animdata,aes(x=state,y=percbelowpoverty,color="Counties"))+geom_point()+
+  stat_summary(aes(color="State Mean"),fun.y="mean",size = 15, geom = "point", shape= "-")+
+  xlab('State')+ylab('Percent Below Poverty')+
+  scale_color_manual(values=c('black','red'))+
+  labs(title="{next_state}")+
+  transition_states(time,transition_length=c(100,100),state_length=c(100,100),wrap=TRUE)+
+  ease_aes('sine-in-out')
+animate(p,nframes=100)
+```
+
+## How much is explained?
+
+- How much of poverty-by-county is explained by the state?
+- We do this by seeing how much *variance* is left over after our explanation
+- `r var(midwest$residual)/var(midwest$percbelowpoverty)` of the variation in county-level poverty is still there after the explanation. State explained only 1-`r var(midwest$residual)/var(midwest$percbelowpoverty)` = `r 1-var(midwest$residual)/var(midwest$percbelowpoverty)` of it!
+
+```{r, echo=TRUE, eval=TRUE}
+c(var(midwest$percbelowpoverty),var(midwest$residual))
+var(midwest$residual)/var(midwest$percbelowpoverty)
+```
+
+## Continuous Variables
+
+- The approach with `summarize(X = mean(X))` works great! 
+- But think about it with a continuous variable...!
+
+```{r, echo=FALSE, eval=TRUE}
+data(midwest)
+```
+
+```{r, echo=TRUE, eval=TRUE}
+midwest <- midwest %>% group_by(as.factor(percollege)) %>%
+  mutate(avebycoll = mean(percbelowpoverty)) %>%
+  mutate(collresidual = percbelowpoverty - avebycoll) %>% ungroup()
+head(select(midwest,state,county,percbelowpoverty,avebycoll,collresidual))
+1-var(midwest$collresidual)/var(midwest$percbelowpoverty)
+```
+
+## Overfitting
+
+- We're going to have to do something odd - we'll need to make our prediction *worse* in order to make it *better*
+- There are 437 obs and `r table(table(midwest$percollege))[1]` different values of poptotal - of course I can predict it perfectly!
+- But if I got another data set, using the model I have would do a *terrible* job
+- Because I've "fit" my model so closely to the data I *have*
+
+## Overfitting
+
+- Imagine I were predicting the height of everyone in the room - first row, first chair? I predict you have the height of the person in the first row, first chair
+- I'll predict perfectly!
+- But when the next class comes in, if I reuse the same predictions I'll be very wrong!
+- Meaning that my "predictions" aren't all that useful
+- I'll do better with *less* flexibility - I'll just take average height now. Bigger residuals now, but I'll do a better job predicting the next class
+
+## Continuous Variables
+
+- So in this context, we're going to do this by splitting the continuous variable `X` up into bins, and taking the mean of `Y` within those bins using `mutate()`.
+- We can do this with the `cut()` function with the `breaks` option, which splits the continuous variable into `breaks` bins of equal length
+
+```{r, echo=FALSE, eval=TRUE}
+midwest <- arrange(midwest,rnorm(437))
+```
+
+```{r, echo=TRUE, eval=TRUE}
+midwest <- midwest %>% mutate(collbins = cut(percollege,breaks=10))
+head(midwest %>% select(county,percbelowpoverty,percollege,collbins))
+```
+
+## Continuous Variables
+
+- Then, just like before with state, we can use `mutate` to take means within these bins
+
+
+```{r, echo=TRUE, eval=TRUE}
+midwest <- midwest %>% mutate(collbins = cut(percollege,10)) %>%
+  group_by(collbins) %>% mutate(avebycoll = mean(percbelowpoverty)) %>% ungroup()
+head(midwest %>% select(county,percbelowpoverty,percollege,avebycoll))
+```
+
+## Continuous Variables
+
+- Let's see our relationship, what's explained, and what's not!
+
+```{r, echo=TRUE, eval=TRUE, fig.width=6, fig.height=4.5}
+plot(midwest$percollege,midwest$percbelowpoverty,xlab="Percent College",ylab="Percent below Poverty")
+points(midwest$percollege,midwest$avebycoll,col='red')
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#THE GGPLOT2 WAY
+
+#Just plotting out the points is pretty simple
+ggplot(midwest,aes(x=percollege,y=percbelowpoverty))+
+  geom_point()+
+  geom_point(aes(x=percollege,y=avebycoll),col='red')
+
+#But we can have it calculate those means automatically with 
+#stat_summary_bin, and display horizontal lines (albeit with vertical lines
+#connecting them) with geom='step'
+
+ggplot(midwest,aes(x=percollege,y=percbelowpoverty))+
+  geom_point()+
+  stat_summary_bin(fun.y='mean',bins=10,geom='step',col='red')
+```
+
+## Continuous Variables
+
+- And so how much can we explain of poverty with college percentage in bins?
+
+```{r, echo=TRUE,eval=TRUE}
+var(midwest$percbelowpoverty-midwest$avebycoll)
+var(midwest$percbelowpoverty)
+1-var(midwest$percbelowpoverty-midwest$avebycoll)/var(midwest$percbelowpoverty)
+```
+
+## Continuous Variables
+
+- Note our approach is sensitive to how many bins we pick. So how many is right?
+- More bins = more explained, but more overfitting risk. 
+- In this class we're going to be a little arbitrary. But there are good ways to pick bins, and other non-bin ways to do this (future classes!)
+
+```{r, echo=TRUE,eval=TRUE}
+for (brks in c(2,10,20,50)) {
+  print(1-var(midwest$percbelowpoverty-
+                (midwest %>% group_by(cut(percollege,breaks=brks)) %>%
+                   mutate(avebycoll = mean(percbelowpoverty)))$avebycoll)/
+          var(midwest$percbelowpoverty))
+}
+```
+
+## Practice
+
+- Get the `BudgetFood` (rename:`BF`) data from `Ecdat` and examine it
+- Explain `wfood` with `town` and then with `totexp` (`breaks=10`). For each:
+- Create a variable with the predicted/explained values
+- Calculate the residuals
+- Show the proportion of variance explained
+- `plot` the raw data and add red `points` for the explained values
+- For `totexp`, also do a `plot` of residuals with a red horizontal line at 0
+
+## Practice answers
+
+```{r, echo=TRUE,eval=FALSE}
+library(Ecdat)
+data(BudgetFood)
+help(BudgetFood)
+str(BudgetFood)
+BF <- BudgetFood
+
+BF <- BF %>%
+  group_by(town) %>%
+  mutate(avebytown = mean(wfood)) %>%
+  mutate(townresid = wfood - avebytown)
+1-var(BF$townresid)/var(BF$wfood)
+plot(BF$town,BF$wfood,xlab='Town',ylab='Food as Pct. of Expenditure')
+points(BF$town,BF$avebytown,col='red')
+
+BF <- BF %>%
+  mutate(expbins = cut(totexp,breaks=10)) %>%
+  group_by(expbins) %>%
+  mutate(avebyexp = mean(wfood)) %>%
+  mutate(expresid = wfood - avebyexp)
+1-var(BF$expresid)/var(BF$wfood)
+plot(BF$totexp,BF$wfood,xlab='Total Expenditure',ylab='Food as Pct. of Expenditure')
+points(BF$totexp,BF$avebyexp,col='red')
+
+plot(BF$totexp,BF$expresid,xlab='Total Expenditure',ylab='Residuals')
+abline(0,0,col='red')
+```
+
+```{r, echo=FALSE,eval=FALSE}
+#THE GGPLOT2 WAY
+library(Ecdat)
+data(BudgetFood)
+help(BudgetFood)
+str(BudgetFood)
+BF <- BudgetFood
+
+BF <- BF %>%
+  group_by(town) %>%
+  mutate(avebytown = mean(wfood)) %>%
+  mutate(townresid = wfood - avebytown)
+1-var(BF$townresid)/var(BF$wfood)
+ggplot(BF,aes(x=town,y=wfood))+geom_point()+
+  xlab('Town')+ylab('Food as Pct. of Expenditure')+
+  geom_point(aes(x=town,y=avebytown),col='red')
+
+BF <- BF %>%
+  mutate(expbins = cut(totexp,breaks=10)) %>%
+  group_by(expbins) %>%
+  mutate(avebyexp = mean(wfood)) %>%
+  mutate(expresid = wfood - avebyexp)
+1-var(BF$expresid)/var(BF$wfood)
+ggplot(BF,aes(x=totexp,y=wfood))+geom_point()+
+  xlab('Total Expenditure')+ylab('Food as Pct. of Expenditure')+
+  geom_point(aes(x=totexp,y=avebyexp),col='red')
+
+ggplot(BF,aes(x=totexp,y=expresid))+geom_point()+
+  xlab('Total Expenditure')+ylab('Residuals')+
+  geom_hline(aes(yintercept=0),col='red')
+```

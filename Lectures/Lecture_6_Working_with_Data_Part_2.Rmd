@@ -1,0 +1,344 @@
+---
+title: "Lecture 6: Working with Data Part 2"
+author: "Nick Huntington-Klein"
+date: "January 23, 2019"
+output:   
+  revealjs::revealjs_presentation:
+    theme: solarized
+    transition: slide
+    self_contained: true
+    smart: true
+    fig_caption: true
+    reveal_options:
+      slideNumber: true
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+theme_set(theme_gray(base_size = 15))
+```
+
+## Recap
+
+- We can get `data.frame`s by making them with `data.frame()`, or reading in data with `data()` or `read.csv`
+- `data.frame`s are a list of vectors - we know vectors!
+- We can pull the vectors back out with `$`
+- We can assign new variables, or update them, using `$` as well
+
+## Today
+
+- We are going to continue working with `data.frame`s/`tibble`s
+- And we're going to introduce an important aspect of data analysis: *splitting the data*
+- In other words, selecting only *part* of the data that we have
+- In other words, to *subset* the data
+
+## Why?
+
+- Why would we want to do this?
+- Many statistical questions require us to!
+- We might be interested in how a variable *differs* for two different groups
+- Or how one variable *is related* to another (i.e. how A looks for different values of B)
+- Or how those relationships differ for different groups
+
+## Example
+
+- Let's read in some data on male heights, from Our World in Data, and look at it
+- Always look at the data before you use it!
+- It has height in CM, let's change that to feet
+
+```{r, echo=TRUE}
+df <- read.csv('http://www.nickchk.com/average-height-men-OWID.csv')
+str(df)
+df <- df %>% mutate(Heightft = Heightcm/30.48)
+```
+
+## Example
+
+- If we look at height overall we will see that mean height is `r mean(df$Heightcm)`
+- But if we look at the data we can see that some countries aren't present every year. So this isn't exactly representative
+
+```{r, echo=TRUE}
+table(df$Year)
+```
+
+- So let's just pick some countries that we DO have the full range of years on: the UK, Germany, France, the Congo, Gabon, and Nigeria!
+
+## Example
+
+- If we limit the data just to those three countries, we can see that the average height in these three, which covers 1810s-1980s evenly, is `r mean(filter(df,Code %in% c('GBR','DEU','FRA','GAB','COD','NGA'))$Heightcm)`
+- What if we want to compare the countries to each other? We need to split off each country by itself (let's convert to feet, too).
+
+```{r, echo=FALSE, eval=TRUE}
+dfsub <- df %>% filter(Code %in% c('GBR','DEU','FRA','GAB','COD','NGA')) %>%
+  mutate(Entity = as.character(Entity)) %>%
+  mutate(Entity = ifelse(Code=='COD','Congo',
+                         ifelse(Code=='GBR','UK',Entity)))
+dfsub %>% group_by(Entity) %>%
+  summarize(Heightft = mean(Heightft))
+```
+
+## Example
+
+- What questions does this answer?
+    - What is average height of men over this time period?
+    - How does average height differ across countries?
+- What can't we answer yet?
+    - How has height changed over time?
+    - What causes these height differences [later!]
+
+## Example
+
+- If we want to know how height changed over time, we need to evaluate each year separately too.
+
+```{r, echo=FALSE, eval=TRUE, fig.width=8, fig.height=5}
+ggplot(filter(dfsub,Code=='GBR'),aes(y=Heightft,x=Year))+
+  geom_line()+geom_point()+
+  ylab("Height (Feet)")+
+  ggtitle("Male Height over time in United Kingdom")
+```
+
+## Example
+
+- To compare the changes over time ACROSS countries, we evaluate separately by each year AND each country
+
+```{r, echo=FALSE, eval=TRUE, fig.width=8, fig.height=5}
+ggplot(dfsub,aes(y=Heightft,x=Year,group=Entity,color=Entity))+
+  geom_line()+geom_point()+
+  ggtitle("Male Height over time")+
+  ylab("Height (Feet)")+
+  scale_colour_discrete(guide = 'none')+
+  geom_text(data=filter(dfsub,Year==1980),aes(label=Entity,color=Entity,x=Year,y=Heightft),hjust=-.1)+
+  scale_x_continuous(limits=c(min(dfsub$Year),max(dfsub$Year)+15))
+```
+
+## Example
+
+- You can see how subsetting can tell a much more complete story than looking at the aggregated data!
+- So how can we do this subsetting?
+- There are plenty of ways 
+- For today we're going to focus on the `filter()` and `select()` commands.
+- We'll also learn to write a `for` loop.
+
+## Subset
+
+- The `filter()` and `select()` commands will allow you to pick just certain parts of your data
+- You can select certain *rows*/observations using logicals with `filter()`
+- And you can select certain *columns*/variables with `select()`
+- The syntax is:
+
+```{r, echo=TRUE, eval=FALSE}
+data.frame %>% filter(logical.for.rows)
+filter(data.frame, logical.for.rows)
+data.frame %>% select(variables,you,want)
+select(data.frame,variables,you,want)
+```
+
+
+## Subset for observations
+
+- Let's start by selecting rows from our data
+- We do this by creating a logical - `filter` will choose all the observations for which that logical is true!
+- Here's the logical I used to pick those six countries: `Code %in% c('GBR','DEU','FRA','GAB','COD','NGA')`
+- This will be equal to `TRUE` if the `Code` variable is `%in%` that list of six I gave
+
+## Subset for observations
+
+- We can use this logical with the `filter` command in dplyr - note I don't need to store the logical as a variable first
+
+```{r, echo=TRUE}
+str(df)
+dfsubset <- df %>% filter(Code %in% c('GBR','DEU','FRA','GAB','COD','NGA'))
+str(dfsubset)
+```
+
+## Subset for observations
+
+- Minor note: see that it still retains the original factor levels. Generally this is what we want. If not, you can "relevel" the factor by re-declaring it as a factor, using only the levels  we have:
+
+```{r, echo=TRUE}
+dfsubset <- dfsubset %>% mutate(Code=factor(dfsubset$Code))
+str(dfsubset)
+```
+
+- While we're at it we might want `Entity` to be a character variable (why?)
+
+```{r, echo=TRUE}
+dfsubset <- dfsubset %>% mutate(Entity = as.character(dfsubset$Entity))
+```
+
+## Subset for observations
+
+- Everything we know about constructing logicals can work here
+- We can also combine multiple variables when doing this
+- What if we want to see the dataset for 1980 only for these six?
+
+```{r, echo=TRUE}
+#filter(df,Code %in% c('GBR','DEU','FRA','GAB','COD','NGA') & Year == 1980)
+filter(df,Code %in% c('GBR','DEU','FRA','GAB','COD','NGA'),Year == 1980)
+```
+
+## Subset for observations
+
+- We can treat the subset like any normal data frame
+- Let's get the mean height in these countries in 1980 and 1810
+- Can do it directly like this, or assign to a new `data.frame` like we did with `dfsubset` and use that
+
+```{r, echo=TRUE}
+mean(filter(df,Code %in% c('GBR','DEU','FRA','GAB','COD','NGA'),
+            Year == 1980)$Heightft)
+mean(filter(df,Code %in% c('GBR','DEU','FRA','GAB','COD','NGA'), 
+            Year == 1810)$Heightft)
+```
+
+## Subset for variables
+
+- Subsetting for variables is easy! Just use `select()` with a vector or list of variables you want!
+- Or you can do `-` a vector of variables you DON'T want!
+- We don't need Heightcm, let's get rid of it
+
+## Subset for variables
+
+```{r, echo=TRUE}
+str(dfsubset %>% select(Entity,Code,Year,Heightft))
+str(dfsubset %>% select(-c(Heightcm)))
+```
+
+## Subset for both!
+
+- We can do both at the same time, chaining one to the other
+
+```{r, echo=TRUE}
+dfsubset %>% filter(Year == 1980) %>%
+  select(Entity,Heightft)
+```
+
+## Practice
+
+- Get the dataset `mtcars` using the `data()` function
+- Look at it with `str()` and `help()`
+- Limit the dataset to just the variables `mpg, cyl`, and `hp`
+- Get the mean `hp` for cars at or above the median value of `cyl`
+- Get the mean `hp` for cars below the median value of `cyl`
+- Do the same for `mpg` instead of `hp`
+- Calculate the difference between above-median and below-median `mpg` and `hp`
+- How do you interpret these differences?
+
+## Practice answers
+
+```{r, echo=TRUE, eval=FALSE}
+data(mtcars)
+help(mtcars)
+str(mtcars)
+mtcars <- mtcars %>% select(mpg,cyl,hp)
+
+mean(filter(mtcars,cyl >= median(cyl))$hp)
+mean(filter(mtcars,cyl < median(cyl))$hp)
+mean(filter(mtcars,cyl >= median(cyl))$hp) - mean(filter(mtcars,cyl < median(cyl))$hp)
+
+mean(filter(mtcars,cyl >= median(cyl))$mpg)
+mean(filter(mtcars,cyl < median(cyl))$mpg)
+mean(filter(mtcars,cyl >= median(cyl))$mpg) - mean(filter(mtcars,cyl < median(cyl))$mpg)
+```
+
+
+## For loops
+
+- Sometimes we want to subset things in many different ways
+- Typing everything out over and over is a waste of time!
+- You don't understand how powerful computers are until you've written a `for` loop
+- This is an incredibly standard programming tool
+- R has another way of writing loops using the `apply` family, but we're not going to go there
+
+## For loops
+
+- The basic idea of a `for` loop is that you have a vector of values, and you have an "iterator" variable
+- You go through the vector one by one, setting that iterator variable to each value one at a time
+- Then you run a chunk of that code with the iterator variable set
+
+## For loops
+
+- In R the syntax is
+
+```{r, echo = TRUE, eval=FALSE}
+for (iteratorvariable in vector) {
+  code chunk
+}
+```
+
+## For loops
+
+- Let's rewrite our `hp` and `mpg` differences with a for loop. Heck, let's do a bunch more variables too. (don't forget to get `data(mtcars)` again - why?)
+- Note if we want it to display results inside a loop we need `print()`
+- Also, unfortunately, if we're looping over variables, `$` won't work - we need to use `[[]]`
+
+```{r, echo = TRUE, eval=FALSE}
+data(mtcars)
+abovemed <- mtcars %>% filter(cyl >= median(cyl))
+belowmed <- mtcars %>% filter(cyl < median(cyl))
+for (i in c('mpg','disp','hp','wt')) {
+  print(mean(abovemed[[i]])-mean(belowmed[[i]]))
+}
+```
+
+-----
+
+```{r, echo = TRUE}
+data(mtcars)
+abovemed <- mtcars %>% filter(cyl >= median(cyl))
+belowmed <- mtcars %>% filter(cyl < median(cyl))
+for (i in c('mpg','disp','hp','wt')) {
+  print(mean(abovemed[[i]])-mean(belowmed[[i]]))
+}
+```
+
+## For loops
+
+- It's also sometimes useful to loop over different values
+- Let's get the average height by country, like before
+- `unique()` can give us the levels to loop over
+
+```{r, echo = TRUE}
+unique(dfsubset$Entity)
+for (countryn in unique(dfsubset$Entity)) {
+  print(countryn)
+  print(mean(filter(dfsubset,Entity==countryn)$Heightft))
+}
+```
+
+## For loop practice
+
+- Get back the full `mtcars` again
+- Use `unique()` to see the different values of `cyl`
+- Use `unique` to loop over those values and get median `mpg` within each level of `cyl`
+- Use `:` to construct a vector to repeat the same loop
+- [Hard!] Use `paste0` to print out "The median mpg for cyl = # is X" where # is the iterator number and X is the answer.
+
+## For loop practice answers
+
+```{r, echo = TRUE, eval=FALSE}
+data(mtcars)
+unique(mtcars$cyl)
+for (c in unique(mtcars$cyl)) {
+  print(median(filter(mtcars,cyl==c)$mpg))
+}
+for (c in 2:4*2) {
+  print(median(filter(mtcars,cyl==c)$mpg))
+}
+for (c in unique(mtcars$cyl)) {
+  print(paste0(c("The median mpg for cyl = ",c,
+                 " is ",median(filter(mtcars,cyl==c)$mpg)),
+               collapse=''))
+}
+#Printing out just the last one:
+```
+
+```{r, echo = FALSE, eval=TRUE}
+data(mtcars)
+for (c in unique(mtcars$cyl)) {
+  print(paste0(c("The median mpg for cyl = ",c,
+                 " is ",median(filter(mtcars,cyl==c)$mpg)),
+               collapse=''))
+}
+```

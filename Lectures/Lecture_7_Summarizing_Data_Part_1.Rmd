@@ -1,0 +1,353 @@
+---
+title: "Lecture 7: Summarizing Data Part 1"
+author: "Nick Huntington-Klein"
+date: "January 29, 2019"
+output:   
+  revealjs::revealjs_presentation:
+    theme: solarized
+    transition: slide
+    self_contained: true
+    smart: true
+    fig_caption: true
+    reveal_options:
+      slideNumber: true
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(stargazer)
+theme_set(theme_gray(base_size = 15))
+```
+
+## Recap
+
+- We can get `data.frame`s and `tibble`s by making them with `data.frame()` or `tibble()`, or reading in data with `data()` or `read.csv`
+- We can manipulate variables with `$`
+- We can pick out parts of the data to analyze with `filter` and `select`
+- Or iterate over things with a `for` loop
+
+## Today
+
+- We're going to talk about different ways of summarizing and describing data
+- We'll put into perspective and go into more detail on some of the functions we've already been using
+- And when certain summary measures should apply
+- As well as how to explore a variable
+
+## What is a Distribution?
+
+- What are we actually doing when we do something like take a mean or a median?
+- We're trying to say something about the *distribution* of that variable
+- What's a distribution?
+
+
+## What is a Distribution?
+
+- A distribution says *how often* given values occur when you randomly sample that variable over and over
+- So for example, the *distribution* of a coin toss is that half the time it gives you H and half the time it gives you T
+- The *distribution* of the minutes in the day is that it's equally likely to be any minute from 0:00 to 23:59
+- The *distribution* of height looks like a bell-curve shape
+- The *distribution* of income has a lot of people near the bottom and very few with huge values
+
+
+## What is a Distribution?
+
+- Possibly the best way to show a distribtion for a continuous variable is graphically
+- Values run along the x axis, and the y axis shows you how often each value came up
+
+```{r, fig.width=5, fig.height=4, echo = FALSE, eval=TRUE}
+#Generate 500 heads and tails
+data <- sample(c("Heads","Tails"),500,replace=TRUE)
+df <- data.frame(Result=data)
+ggplot(df,aes(x=Result))+geom_bar()+ylab("Count")
+```
+
+## Distribution for categorical variables
+
+- If the variable is categorical (takes several discrete values, like Heads and Tails) rather than continuous, often the best way to describe its distribution is just count the number (or fraction) of observations in each category
+- The `table()` command is super handy for this
+
+```{r, echo=TRUE}
+table(data)
+prop.table(table(data))
+```
+
+## What is a Distribution?
+
+- When the variable in question is *continuous*, we can't exactly count the number of times *each* value comes up
+- So we smooth it out and look at the number of times it falls within a particular value
+
+```{r, fig.width=5, fig.height=4, echo=FALSE, eval=TRUE}
+library(haven)
+df <- read_stata('http://fmwww.bc.edu/ec-p/data/wooldridge/crime4.dta') %>%
+  filter(year==81)
+ggplot(df,aes(x=crmrte))+stat_density(geom='line')+
+  ylab("Density")+xlab("Crime Rate by County in 1981")
+```
+
+## What is a Distribution?
+
+- When we calculate something like a mean, median, etc., what we are doing is *describing the distribution* in a condensed way
+- Means and medians are both ways of describing where the *center* of the distribution is
+- Percentiles describe where other parts not quite in the middle are
+- Standard deviations and variances describe how *spread out* the distribution is
+- That's why we call these "summary statistics" - they're providing a brief *summary* of what the distribution looks like
+
+## Different Summary Measures - the Mean
+
+- The one we're most familiar with is the *mean* - we've even used it as an example before
+- The mean can be calculated by multiplying each value by the proportion of times it comes up, and adding it all together
+- Or in R, `mean(x)`
+
+```{r, echo=TRUE}
+x <- c(1,2,2,3,4)
+mean(x)
+```
+
+```{r, echo=TRUE, eval=FALSE}
+1*(1/5)+2*(2/5)+3*(1/5)+4*(1/5)
+1*(1/5)+2*(1/5)+2*(1/5)+3*(1/5)+4*(1/5)
+```
+
+```{r, echo=FALSE, eval=TRUE}
+1*(1/5)+2*(2/5)+3*(1/5)+4*(1/5)
+```
+
+## The Mean
+
+- Nice things about the mean:
+    - Easy to understand
+    - The mean of `x-mean(x)` is 0
+    - Good statistical properties
+    - Makes sense with large or small samples, with discrete or continuous variables
+    - Represents the "betting average" of the variable
+- Not so nice:
+    - Sensitive to outliers - `mean(c(1,2,3))` is `2`, but `mean(c(1,2,1001))` is `r mean(c(1,2,1001))`
+    - Sometimes easy to forget the rest of the distribution (the mean describes the distribution, but it doesn't describe EVERYTHING about the distribution!)
+    
+## The Median
+
+- The median is where you line up all the observations from smallest to largest and pick the one in the middle
+- If there's an even number of observations, take the mean of the two middle
+
+```{r, echo=TRUE}
+x <- c(3,1,4,2,2)
+median(x)
+sort(x)[round(length(x)/2)]
+```
+
+## The Median
+
+- Nice things about the median:
+    - Super easy to calculate (you can often do it by hand)
+    - Represents the "typical" observation
+    - Not sensitive to outliers - `median(c(1,2,3))` is `2`, and `median(c(1,2,1001))` is `r median(c(1,2,1001))`
+    - Generally not affected by transforming the data
+- Not so nice:
+    - Insensitive to outliers means it can ignore real changes in the "tails"
+    - Can ignore magnitudes generally
+    - May be highly sensitive if there are big gaps between observations
+    
+    
+## Mean and Median Together
+
+```{r, fig.width=7, fig.height=5, echo=FALSE, eval=TRUE}
+library(haven)
+df <- read_stata('http://fmwww.bc.edu/ec-p/data/wooldridge/crime4.dta') %>%
+  filter(year==81)
+ggplot(df,aes(x=crmrte))+stat_density(geom='line')+
+  ylab("Density")+xlab("Crime Rate by County in 1981")+
+  geom_vline(aes(xintercept=mean(crmrte),color='Mean'))+
+  geom_vline(aes(xintercept=median(crmrte),color='Median'))+
+  scale_colour_manual("Calculations", values = c("red", "blue"))
+```
+
+## Mean and Median Together
+```{r, fig.width=7, fig.height=5, echo=FALSE, eval=TRUE}
+data(population)
+ggplot(population,aes(x=log(population)))+stat_density(geom='line')+
+  ylab("Density")+xlab("Log Population of Country")+
+  geom_vline(aes(xintercept=mean(log(population)),color='Mean'))+
+  geom_vline(aes(xintercept=median(log(population)),color='Median'))+
+  scale_colour_manual("Calculations", values = c("red", "blue"))
+```
+
+## Mean and Median Together
+```{r, fig.width=7, fig.height=5, echo=FALSE, eval=TRUE}
+data(population)
+ggplot(population,aes(x=population))+stat_density(geom='line')+
+  ylab("Density")+xlab("Population of Country")+
+  geom_vline(aes(xintercept=mean(population),color='Mean'))+
+  geom_vline(aes(xintercept=median(population),color='Median'))+
+  scale_colour_manual("Calculations", values = c("red", "blue"))
+```
+
+## Percentiles
+
+- A percentile is just like a median
+- Except that you don't necessarily pick the MIDDLE
+- Line 'em up, and pick the (percentile)th person
+- Use the `quantile()` function, and list the percentiles you want
+- Percentiles can fully describe the distribution if you use enough!
+
+```{r, echo=TRUE}
+quantile(c(0,1,2,3,4,5),c(.4,.5,1))
+median(c(0,1,2,3,4,5))
+```
+
+## Percentiles
+
+```{r, fig.width=7, fig.height=5, echo=FALSE, eval=TRUE}
+library(haven)
+df <- read_stata('http://fmwww.bc.edu/ec-p/data/wooldridge/crime4.dta') %>%
+  filter(year==81)
+ggplot(df,aes(x=crmrte))+stat_density(geom='line')+
+  ylab("Density")+xlab("Crime Rate by County in 1981")+
+  geom_vline(data=data.frame(x=quantile(df$crmrte,0:10/10)),
+             aes(xintercept=as.numeric(x)),color='blue')+
+  ggtitle("Crime Rate with 0%, 10%, 20%, etc. Percentiles")
+```
+
+## Percentiles
+
+- Note that exactly 10% of the observations are between each set of lines
+
+```{r, fig.width=7, fig.height=5, echo=FALSE, eval=TRUE}
+data(population)
+ggplot(population,aes(x=log(population)))+stat_density(geom='line')+
+  ylab("Density")+xlab("Log Population of Country")+
+  geom_vline(data=data.frame(x=quantile(log(population$population),0:10/10)),
+             aes(xintercept=as.numeric(x)),color='blue')+
+  ggtitle("Log Population with 0%, 10%, 20%, etc. Percentiles")
+```
+
+## Min and Max
+
+- Also useful are the minimum and maximum of the variable
+- (a.k.a. the 0% and 100% percentiles)
+- Show you the range of values that the variable CAN take
+- `min()` and `max()` work here, no surprises!
+
+## Standard deviation and variance
+
+- These are standard ways of understanding how much the data *varies around the mean*
+- Variance = Standard deviation squared
+- The higher these values, the less good a description the mean is of the variable
+- and the more noise around the mean!
+
+## Standard deviation and variance
+
+- Start with data and *subtract out the mean*
+- The result is the *residuals* (left-over part, unexplained part)
+- Square the residuals
+- Average them (variance) [note: then multiply by N/(N-1)]
+- Square root of the variance is the standard deviation
+- Why this process rather than some other measure around the mean (i.e. why square it)? Good statistical reasons I promise
+
+## Standard deviation and variance
+```{r, echo=TRUE}
+data <- c(1,1,1,1,2)
+data <- data - mean(data)
+data
+#Variance, sd
+c((5/4)*mean(data^2),var(c(1,1,1,1,2)),
+  sqrt((5/4)*mean(data^2)),sd(c(1,1,1,1,2)))
+
+data2 <- c(100,0,-30,50,80)
+data2 <- data2 - mean(data2)
+#Variance, sd
+c((5/4)*mean(data2^2),var(c(100,0,-30,50,80)),
+  sqrt((5/4)*mean(data2^2)),sd(c(100,0,-30,50,80)))
+```
+
+## Standard deviation and variance
+- Graphically, SD and variance tell you how "wide" the distribution is
+
+```{r, fig.width=7, fig.height=5, echo=FALSE, eval=TRUE}
+dat <- data.frame(wide = rnorm(100),
+                  narrow = rnorm(100)/4)
+ggplot(dat,aes(x=wide,color="SD = 1"))+stat_density(geom='line')+
+  stat_density(aes(x=narrow,color="SD = .25"),geom='line')+
+  xlab("Value")+ylab("Density")
+```
+
+## Summary statistics table
+
+- Something we will often want to do is display a bunch of summary statistics at once for the variables we have
+- This makes it easy to understand a variable's distribution at a glance
+- We'll be using the `stargazer` command for this
+
+```{r, echo=FALSE,eval=TRUE}
+data(LifeCycleSavings)
+stargazer(LifeCycleSavings,type='text')
+```
+
+## Packages
+
+- Like tidyverse, Stargazer isn't a part of base R. It's in a package, so we'll need to install it
+- We can install packages using `install.packages('nameofpackage')`
+
+```{r, echo=TRUE, eval=FALSE}
+install.packages('stargazer')
+```
+
+- We can then check whether it's installed in the Packages tab
+
+## Stargazer
+
+- All we have to do once we've loaded stargazer is drop a data frame into it and it will give us basic summary statistics for all the variables in the data frame
+- (use `select` first if you don't want all the variables)
+
+```{r, echo=TRUE}
+data(LifeCycleSavings)
+library(stargazer)
+stargazer(LifeCycleSavings,type='text')
+```
+
+## Stargazer
+
+- See help(stargazer) to see what other summary stats, like median or IQR (75th percentile - 25th) you may want to include. Many, many other options too
+- `type='text'` tells it to give us a basic text table. 
+- Another handy one is `type='html'`, especially if we want to output our table to a file
+- `out='filename'` will save our results
+- Note that, if desired, you can open up the HTML table and copy/paste it into Excel or Word
+
+```{r, echo=TRUE, eval=FALSE}
+data(LifeCycleSavings)
+library(stargazer)
+stargazer(LifeCycleSavings,type='html',out='summarytable.html')
+```
+
+## Note about Tibbles
+
+- Stargazer doesn't do summary stats for `tibble`s, so if you have a tibble, just run it through `as.data.frame()` first
+
+```{r, echo=TRUE}
+tibbleLCS <- as_tibble(LifeCycleSavings)
+stargazer(tibbleLCS,type='text')
+stargazer(as.data.frame(tibbleLCS),type='text')
+```
+
+## Practice
+
+- Install and load in `stargazer`
+- Use `data(LifeCycleSavings)` to get the Life Cycle Savings data, and use `help()` and `str()` to look at it
+- Use `stargazer()` to get a text table of summary statistics for all the variables EXCEPT ddpi
+- Now make an HTML table for all the variables. Open the file and look at it in a browser.
+- For each of the statistics that the `stargazer()` table gives you, plus the median, calculate that statistic on your own for the `pop15` variable using the appropriate R function
+- Calculate the max, min, and median in two ways - using their own respective functions, and as percentiles.
+
+## Practice answers
+```{r, echo=TRUE, eval=FALSE}
+install.packages('stargazer')
+library(stargazer)
+data(LifeCycleSavings)
+help(LifeCycleSavings)
+str(LifeCycleSavings)
+stargazer(select(LifeCycleSavings,-ddpi),type='text')
+stargazer(select(LifeCycleSavings,-ddpi),type='html',out='table.html')
+LS <- LifeCycleSavings
+c(length(LS$pop15),mean(LS$pop15),sd(LS$pop15),min(LS$pop15),
+  quantile(LS$pop15,c(0,.25,.5,.75,1)),max(LS$pop15),median(LS$pop15))
+```

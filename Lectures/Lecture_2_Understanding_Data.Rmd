@@ -1,0 +1,234 @@
+---
+title: "Lecture 2: Understanding Data"
+author: "Nick Huntington-Klein"
+date: "December 1, 2018"
+output:   
+  revealjs::revealjs_presentation:
+    theme: solarized
+    transition: slide
+    self_contained: true
+    smart: true
+    fig_caption: true
+    reveal_options:
+      slideNumber: true
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+theme_set(theme_gray(base_size = 15))
+```
+
+## What's the Point?
+
+What are we actually trying to DO when we use data?
+
+Contrary to popular opinion, the point isn't to make pretty graphs or to make a point, or justify something you've done.
+
+Those may be nice side effects!
+
+## Uncovering Truths
+
+The cleanest way to think about data analysis is to remember that data *comes from somewhere*
+
+There was some process that *generated that data*
+
+Our goal, in all data analysis, is to get some idea of *what that process is*
+
+## Example
+
+- Imagine a basic coin flip
+- Every time we flip, we get heads half the time and tails half the time
+- The TRUE process that generates the data is that there's a coin that's heads half the time and tails half the time
+- If we analyze the data correctly, we should report back that the coin is heads half the time
+- Let's try calculating the *proportion* of heads
+
+## Example
+
+```{r, echo = TRUE}
+#Generate 500 heads and tails
+data <- sample(c("Heads","Tails"),500,replace=TRUE)
+#Calculate the proportion of heads
+mean(data=="Heads")
+```
+```{r fig.width=5, fig.height=4, echo = FALSE}
+df <- data.frame(Result=data)
+ggplot(df,aes(x=Result))+geom_bar()+ylab("Count")
+```
+
+## Example
+
+- Let's try out that code in R a few times and see what happens
+- First, what do we *want* to happen? What should we see if our data analysis method is good?
+
+## How Good Was It?
+
+- Our data analysis consistently told us that the coin was generating heads about half the time - the true process!
+- Our data analysis lets us conclude the coin is fair
+- That is describing the true data generating process pretty well!
+- Let's think - what other approaches could we have taken? What would the pros and cons be?
+    - Counting the heads instead of taking the proportion?
+    - Taking the mean and adding .1?
+    - Just saying it's 50%?
+    
+## Another Example
+
+- People have different amounts of money in their wallet, from 0 to 10
+- We flip a coin and, if it's heads, give them a dollar
+- What's the data generating process here?
+- What should our data analysis uncover?
+
+## Another Example
+```{r, echo = TRUE}
+#Generate 1000 wallets and 1000 heads and tails
+data <- data.frame(wallets=sample(0:10,1000,replace=TRUE))
+data$coin <- sample(c("Heads","Tails"),1000,replace=TRUE)
+#Give a dollar whenever it's a heads, then get average money by coin
+data <- data %>% mutate(wallets = wallets + (coin=="Heads"))
+data %>% group_by(coin) %>% summarize(wallets = mean(wallets))
+```
+```{r fig.width=5, fig.height=3, echo = FALSE}
+aggdat <- data %>% group_by(coin) %>% summarize(wallets = mean(wallets))
+ggplot(aggdat,aes(x=coin,y=wallets))+geom_col()+ylab("Average in Wallet")+xlab("Flip")
+```
+
+## Conclusions
+
+- What does our data analysis tell us?
+- We *observe* a difference of `r abs(round(aggdat$wallets[2]-aggdat$wallets[1],2))` between the heads and tails
+- Because we know that nothing would have caused this difference other than the coin flip, we can conclude that the coin flip *is why* there's a difference of `r abs(round(aggdat$wallets[2]-aggdat$wallets[1],2))`
+
+## But What If?
+
+- So far we've been cheating
+- We know exactly what process generated that data
+- So really, our data analysis doesn't matter
+- But what if we *don't* know that?
+- We want to make sure our *method* is good, so that when we draw a conclusion from our data, it's the right one
+
+## Example 3
+
+- We're economists! So no big surprise we might be interested in demand curves
+- Demand curve says that as $P$ goes up, $Q_d$ goes down
+- Let's gather data on $P$ and $Q_d$
+- And determine things like the slope of demand, demand elasticity, etc.
+- Just so happens I have some data on 1879-1923 US food export prices and quantities!
+
+## Example 3
+
+```{r, echo = FALSE}
+#Bring in food data
+foodPQ <- read.csv(text='Year,FoodPrice,FoodQuantity
+  1879,93.4,148.5
+  1880,96.1,162.3
+  1881,102.6,117.7
+  1882,109,81.4
+  1883,104,82.7
+  1884,91.4,77.2
+  1885,85.4,70.9
+  1886,80.4,89
+  1887,81.6,85.3
+  1888,86,56.8
+  1889,75.4,85.9
+  1890,76.6,96.5
+  1891,100.1,119.1
+  1892,86.6,140.7
+  1893,77.7,107.8
+  1894,67.7,97.1
+  1895,69.4,92
+  1896,63.5,156.6
+  1897,71.3,197.7
+  1898,76.7,218.2
+  1899,74.2,186.5
+  1900,74.1,176.6
+  1901,77.4,182.7
+  1902,82,112.1
+  1903,81.4,123.1
+  1904,80.3,73.2
+  1905,82.5,108.8
+  1906,81.7,126.1
+  1907,95,118.2
+  1908,99.8,98.3
+  1909,104.2,65.1
+  1910,98.7,55.1
+  1911,97.9,68.5
+  1912,104.2,79.4
+  1913,100,100
+  1914,114.5,140
+  1915,133.8,200.6
+  1916,144.2,168.6
+  1917,214.9,134.5
+  1918,234.6,132.9
+  1919,241.7,156.9
+  1920,268.2,192.2
+  1921,155.7,252.8
+  1922,127.3,210.6
+  1923,129.2,116.9')
+#Plot
+ggplot(foodPQ,aes(x=FoodQuantity,y=FoodPrice))+
+  #Add year labels
+  geom_text(aes(label=Year))+
+  #and axis labels
+  ylab("Price")+xlab("Quantity")+ggtitle("Food Export Price v. Quantity, US, 1879-1923")
+```
+
+## Example 3
+
+We can calculate the correlation between $P$ and $Q$:
+
+```{r, echo = TRUE}
+cor(foodPQ$FoodPrice,foodPQ$FoodQuantity)
+```
+
+## Example 3 Conclusions
+
+- We *observe* a POSITIVE correlation of `r round(cor(foodPQ$FoodPrice,foodPQ$FoodQuantity),2)`
+- But demand curves shouldn't slope upwards... huh?
+- Does demand really slope up? Does this tell us about the process that generated this data? Why or why not?
+- Why do we see the data we do? Let's try to think of some reasons.
+
+## Getting Difficult
+
+- We need to be more careful to figure out what's actually going on
+- Plus, the more we know about the context and the underlying model, the more likely it is that we won't miss something important
+
+##Getting Difficult
+
+- Our fake examples were easy because we knew perfectly where the data came from
+- But how much do you know about food prices in turn-of-the-century US?
+- Or for that matter how prices are set in the food industry?
+- There's more work to do in uncovering the process that made the data
+
+
+## For the Record
+
+- Likely, one of the big problems with our food analysis was that we forgot to account for DEMAND shifting around, showing us what SUPPLY looks like. Supply *does* slope up!
+- Just because we loudly announced that we wanted the demand curve doesn't force the data to give it to us!
+- Let's imagine the process that might have generated this data by starting with the model itself and seeing how we can *generate* this data
+
+## But...
+
+- If we can figure out what methods work well when we *do* know the right answer
+- And apply them when we *don't*...
+- We can figure out what those processes are
+- And that's the goal!
+- This is what we'll be figuring out how to do technically during the programming part of the class, and conceptually during causal inference
+
+
+
+## R
+
+- We'll need good tools to do it
+- We'll be using R
+- Let's go through how R can be installed, in preparation for next week
+- [R-Project.org](http://www.r-project.org)
+- [RStudio.com](http://www.rstudio.com)
+- [RStudio.cloud](http://rstudio.cloud)
+
+## Finish us out
+
+- Now that we're all prepared let's get a jump on homework
+- Go to New York Times' The Upshot or FiveThirtyEight and find an article that uses data
+- See Homework 1
+- Together let's start thinking about answers to these questions

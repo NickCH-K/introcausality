@@ -1,0 +1,247 @@
+---
+title: "Lecture 3: Introduction to R and RStudio"
+author: "Nick Huntington-Klein"
+date: "January 17, 2019"
+output:   
+  revealjs::revealjs_presentation:
+    theme: solarized
+    transition: slide
+    self_contained: true
+    smart: true
+    fig_caption: true
+    reveal_options:
+      slideNumber: true
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+theme_set(theme_gray(base_size = 15))
+```
+
+## Welcome to R
+
+The first half of this class will be dedicated to getting familiar with R.
+
+R language for working with data. RStudio is an environment for working with that language.
+
+By the time we're done, you should be comfortable manipulating and examining data.
+
+## Why R?
+
+This is going to accomplish a few things for us.
+
+- As we mentioned last week: Excel/Sheets is a great tool for accountants, not for working with data.
+- Learning to program is a highly valuable skill
+- R is basically a big cool calculator, and we want to do big cool calculations
+
+## A few notes
+
+- These slides are written in R; you can look up the code I'm using on Titanium if you want to see how I did something
+- The assigned videos are there to help
+- Other resources on the [Econometrics Help](nickchk.com/econometrics.html) list, available on Titanium
+- Don't be afraid of programming! It's a language like any other, just a language that requires you to be very precise. Tell the computer what you want!
+- If you're already a programmer, you may get a little bored. If you'd like to learn something more advanced, let me know.
+- Ask lots of questions!!! (!)
+
+## Today
+
+- Get used to working in RStudio
+- Figure out how R conceptualizes working with stuff
+- Figure out the Help system <- Important!
+
+## The RStudio Panes
+
+- Console
+- Environment Pane
+- Browser Pane
+- Source Editor
+- Li'l tip: Ctrl/Cmd + Shift + number will maximize one of these panes
+
+## Console
+
+- Typically bottom-left
+- This is where you can type in code and have it run immediately
+- Or, when you run code from the Source Editor, it will show up here
+- It will also show any output or errors
+
+## Console Example
+
+- Let's copy/paste some code in there to run
+
+```{r, echo = TRUE, eval = FALSE}
+#Generate 500 heads and tails
+data <- sample(c("Heads","Tails"),500,replace=TRUE)
+#Calculate the proportion of heads
+mean(data=="Heads")
+#This line should give an error - it didn't work!
+data <- sample(c("Heads","Tails"),500,replace=BLUE)
+#This line should give a warning
+#It did SOMETHING but maybe not what you want
+mean(data)
+#This line won't give an error or a warning
+#But it's not what we want!
+mean(data=="heads")
+```
+
+## What We Get Back
+
+- We can see the code that we've run
+- We can see the output of that code, if any
+- We can see any errors or warnings (in <span style="color: red">red</span>). Remember - errors mean it didn't work. Warnings mean it *maybe* didn't work.
+- Just because there's no error or warning doesn't mean it DID work! Always think carefully
+
+## Environment Pane
+
+- The output of what we've done can also be seen in the *Environment pane*
+- This is on the top-right
+- Two important tabs: Environment and History
+- Mostly, Environment
+
+## History Tab
+
+- History shows us the commands that we've run
+- To save yourself some typing, you can re-run commands by double-clicking them or hitting Enter
+- Send to console with double-click/enter, send to source pane with Shift+double-click/Enter
+- Or use "To Console" or "To Source" buttons
+
+## Environment Tab
+
+- Environment tab shows us all the objects we have in memory
+- For example, we created the `data` object, so we can see that in Environment
+- It shows us lots of handy information about that object too
+- (we'll get to that later)
+- You can erase everything with that little broom button (technically this does `rm(list=ls())`)
+
+## Browser Pane
+
+- Bottom-right
+- Lots of handy stuff here!
+- Mostly, the *outcome* of what you do will be seen here
+
+## Files Tab
+
+- Basic file browser
+- Handy for opening up files
+- Can also help you set the working directory:
+    - Go to folder
+    - In menu bar, Session
+    - Set Working Directory
+    - To Files Pane Location
+  
+## Plots and Viewer tabs
+
+- When you create something that must be viewed, like a plot, it will show up here.
+
+```{r, echo=TRUE, eval=FALSE}
+data(LifeCycleSavings)
+plot(density(LifeCycleSavings$pop75),main='Percent of Population over 75')
+```
+
+```{r, echo=FALSE, eval=FALSE}
+## THE GGPLOT2 WAY
+data(LifeCycleSavings)
+ggplot(LifeCycleSavings,aes(x=pop75))+stat_density(geom='line')+
+  ggtitle('Percent of Population over 75')
+```
+
+- Note the "Export" button here - this is an easy way to save plots you've created
+
+## Packages Tab
+
+- This is one way to install new packages and load them in
+- We'll be talking more about packages later
+- I generally avoid this tab; better to do this via code
+- Why? Replicability! A **VERY** important reason to use code and not the GUI or, say, Excel
+- You always want to make sure your future self (or someone else) knows how to use your code
+- One thing I do use this for is checking for package updates, note handy "Update" button
+
+## Help Tab
+
+- This is where help files appear when you ask for them
+- You can use the search bar here, or `help()` in the console
+- We'll be going over this today a bit later
+
+## Source Pane
+
+- You should be working with code FROM THIS PANE, not the console!
+- Why? Replicability!
+- Also, COMMENTS! USE THEM! PLEASE! `#` lets you write a comment.
+- Switch between tabs like a browser
+- Set working directory:
+    - Select a source file tab
+    - In menu bar: Session
+    - Set Working Directory
+    - To Source File Location
+
+## Running Code from the Source Pane
+
+- Select a chunk of code and hit the "Run" button
+- Click on a line of code and do Ctrl/Cmd-Enter to run just that line and advance to the next <- Super handy!
+- Going one line at a time lets you check for errors more easily
+- Let's try some!
+
+```{r, eval=FALSE, echo=TRUE}
+data(mtcars)
+mean(mtcars$mpg)
+mean(mtcars$wt)
+372+565
+log(exp(1))
+2^9
+(1+1)^9
+```
+
+## Autocomplete
+
+- RStudio comes with autocomplete! 
+- Typing in the Source Pane or the Console, it will try to fill in things for you
+    - Command names (shows the syntax of the function too!)
+    - Object names from your environment
+    - Variable names in your data
+- Let's try redoing the code we just did, typing it out
+
+## Help
+
+- Autocomplete is one way that RStudio tries to help you out
+- The way that R helps you out is with the documentation
+- When you start doing anything serious with a computer, like programming, the most important skills are:
+     - Knowing to read documentation
+     - Knowing to search the internet for help
+     
+## help()
+
+- You can get the documentation on most R objects using the `help()` function
+- `help(mean)`, for example, will show you:
+    - What the function is
+    - The "syntax" for the function
+    - The available options for the function
+    - Other, related functions, like `weighted.mean`
+    - Ideally, some examples of proper use
+- Not just for functions/commands - some data sets will work too! Try `help(mtcars)`
+
+## Searching the Internet
+
+- Even professional programmers will tell you - they spend a huge amount of time just looking up how to do stuff online
+- Why not?
+- Granted, this won't come in handy for a midterm, but for actually doing work it's essential
+
+## Searching the Internet
+
+- Just Google (or whatever) what you need! There will usually be a resource.
+- R-bloggers, Quick-R, StackOverflow
+- Or just Google. Try including "R" and the name of what you want in the search
+- If "R" isn't turning up anything, try Rstats
+- Ask on Twitter with `#rstats`
+- Ask on StackExchange or StackOverflow <- tread lightly!
+
+## Example
+
+- We've picked up some data sets to use like LifeCycleSavings and mtcars with the data() function
+- What data sets can we get this way?
+- Let's try `help(data)`
+- Let's try searching the internet
+
+## That's it!
+
+See you next time!

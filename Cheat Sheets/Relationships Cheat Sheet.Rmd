@@ -1,0 +1,123 @@
+---
+title: "Relationships Cheat Sheet"
+author: "Nick Huntington-Klein"
+date: "April 5, 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE)
+```
+
+## Definitions
+
+- **Dependent**: `X` and `Y` are *dependent* if knowing something about `X` gives you information about what `Y` is likely to be, or vice versa
+- **Correlated**: `X` and `Y` are *correlated* if knowing that `X` is unusually high tells you whether `Y` is likely to be unusually high or unusually low
+- **Explaining**: *Explaining* `Y` using `X` means that we are predicting what `Y` is likely to be, given a value of `X`
+
+## Tables
+
+`table(x)` will show us the full *distribution* of `x`. `table(x,y)` will show us the full *distribution* of `x` and `y` together (the "joint distribution"). Typically not used for continuous variables.
+
+```{r, echo=TRUE}
+library(Ecdat)
+data(Benefits)
+
+table(Benefits$joblost)
+
+table(Benefits$joblost,Benefits$married)
+```
+
+You can label the variable names using the confusingly-named *dimnames names* option, `dnn`
+
+```{r, echo=TRUE}
+table(Benefits$joblost,Benefits$married,dnn=c('Job Loss Reason','Married'))
+```
+
+Wrap `table()` in `prop.table()` to get proportions instead of counts. The `margin` option of `prop.table()` will give the proportion within each row (`margin=1`) or within each column (`margin=2`) instead of overall.
+
+```{r, echo=TRUE}
+prop.table(table(Benefits$joblost,Benefits$married))
+prop.table(table(Benefits$joblost,Benefits$married),margin=1)
+prop.table(table(Benefits$joblost,Benefits$married),margin=2)
+```
+
+## Correlation
+
+We can calculate the correlation between two (numeric) variables using `cor(x,y)`
+
+```{r, echo=TRUE}
+cor(Benefits$age,Benefits$tenure)
+```
+
+## Scatterplots
+
+You can plot one variable against another with `plot(xvar,yvar)`. Add `xlab`, `ylab`, and `main` options to title the axes and entire plot, respectively. Use `col` to assign a color.
+
+Use `points()` to add more points to a graph after you've made it, likely with a different `col`or.
+
+```{r, echo=TRUE, fig.width=5, fig.height = 3.5}
+library(tidyverse)
+BenefitsM <- Benefits %>% filter(sex=='male')
+BenefitsF <- Benefits %>% filter(sex=='female')
+plot(BenefitsM$age,BenefitsM$tenure,xlab='Age',ylab='Tenure at Job',col='blue')
+points(BenefitsF$age,BenefitsF$tenure,xlab='Age',ylab='Tenure at Job',col='red')
+```
+
+## Overlaid Densities
+
+You can show how the *distribution* of `Y` changes for different values of `X` by plotting the density separately for different values of `X`. Use `lines` to add the second density plot after you've done the first one.
+
+```{r, echo=TRUE, fig.width=5, fig.height = 3.5}
+plot(density(BenefitsM$tenure),
+     xlab='Tenure at Job',col='blue',main="Job Tenure by Gender")
+lines(density(BenefitsF$tenure),xlab='Tenure at Job',col='red')
+```
+
+## Means Within Groups and Explaining
+
+Part of looking at both *correlation* and *explanation* will require getting the mean of `Y` within values of `X`, which we can do with `group_by()` in `dplyr/tidyverse`.
+
+Using `summarize()` after `group_by()` will give us a table of means within each group. Using `mutate()` will add a new variable assigning that mean. Use `mutate()` with `mean(y)` to get the part of `y` explained by `x`, or with `y - mean(y)` to get the part not explained by `x` (the residual). Don't forget to `ungroup()`!
+
+```{r, echo=TRUE}
+Benefits %>% group_by(joblost) %>% 
+  summarize(tenure = mean(tenure), age = mean(age))
+
+Benefits <- Benefits %>% group_by(joblost) %>% 
+  mutate(tenure.exp = mean(tenure),
+         tenure.resid = tenure - mean(tenure)) %>% ungroup()
+head(Benefits %>% select(joblost,tenure,tenure.exp,tenure.resid))
+```
+
+## Explaining With a Continuous Variable
+
+If we want to explain `Y` using `X` but `X` is continuous, we need to break it up into bins first. We will do this with `cut()`, which has the `breaks` option for how many bins to split it up into.
+
+In this class, we will be choosing the number of breaks arbitrarily. I'll tell you what values to use.
+
+```{r, echo=TRUE}
+Benefits <- Benefits %>% mutate(agebins = cut(age,breaks=5)) %>%
+  group_by(agebins) %>% 
+  mutate(tenure.ageexp = mean(tenure),
+         tenure.ageresid = tenure - mean(tenure)) %>% ungroup()
+head(Benefits %>% select(agebins,tenure,tenure.ageexp,tenure.ageresid))
+```
+
+```{r, echo=TRUE, fig.width=5, fig.height = 3.5}
+plot(Benefits$age,Benefits$tenure,xlab="Age",ylab="Tenure",col='black')
+points(Benefits$age,Benefits$tenure.ageexp,col='red',cex=1.5,bg='red',pch=21)
+```
+
+## Proportion of Variance Explained
+
+When `Y` is numeric, we can calculate its variance, and see how much of that variance is explained by `X`, and also how much is not. We do this by calculating the variance of the residuals, as this is the amount of variance in `Y` left over after taking out what `X` explains.
+
+```{r, echo=TRUE}
+#Proportion of tenure NOT explained by age
+var(Benefits$tenure.ageresid)/var(Benefits$tenure)
+
+#Proportion of tenure explained by age
+1 - var(Benefits$tenure.ageresid)/var(Benefits$tenure)
+var(Benefits$tenure.ageexp)/var(Benefits$tenure)
+```

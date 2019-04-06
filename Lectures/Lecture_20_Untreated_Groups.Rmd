@@ -1,0 +1,308 @@
+---
+title: "Lecture 20 Untreated Groups"
+author: "Nick Huntington-Klein"
+date: "March 12, 2019"
+output:   
+  revealjs::revealjs_presentation:
+    theme: solarized
+    transition: slide
+    self_contained: true
+    smart: true
+    fig_caption: true
+    reveal_options:
+      slideNumber: true
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE)
+library(tidyverse)
+library(dagitty)
+library(ggdag)
+library(gganimate)
+library(ggthemes)
+library(Cairo)
+theme_set(theme_gray(base_size = 15))
+```
+
+## Recap
+
+- Last time we discussed fixed effects, a prominent real-world causal inference method that sees a lot of use
+- Fixed effects is one way of closing many back doors at once by basically comparing individuals to themselves, across time
+- This is important given that, in a social science context, the idea that we can really measure and control for *everything* in a back door is often implausible
+- However, in many contexts, comparing people to themselves is not possible or desirable
+
+## Today
+
+- Today we'll be starting to talk about what are called *policy evaluation* methods
+- Where we have some *treatment* that has been applied to some people and not others
+- (or sometimes, more to some people and less to others)
+- And our goal is to figure out how we can compare the treated and the untreated in a way that makes sense
+- i.e., apples to apples
+
+## The Basic Problem
+
+- It's common in the "treatment effects" world to refer to the treatment variable as `D`, which is binary (0 or 1)
+- Weird, I guess, but no reason not to stick with it. We want to identify `D -> Y` in this (simplified) diagram:
+
+```{r, dev='CairoPNG', echo=FALSE, fig.width=6,fig.height=4}
+dag <- dagify(Y~D+W1+W2,
+              D~W1+W2,
+              coords=list(
+                x=c(W1=2,W2=3,D=1,Y=4),
+                y=c(W1=2,W2=2,D=1,Y=1)
+              )) %>% tidy_dagitty()
+ggdag(dag,node_size=20)
+```
+
+## Matching
+
+- We're going to start with a procedure called *matching*
+- Matching is actually much more common outside of economics than inside
+- But it's something you'll want to know if you end up in data science
+- Plus, it's a good illustration of the concept here
+
+## Matching
+
+- The basic idea of matching is to remember: picking a sample where people have similar levels of `W` is one way of controlling for `W`
+- Well, why don't we pick that sample intentionally?
+- We take our treated observations (`D=1`), look at their `W`s, and pick non-treated observations with similar (or identical) values of `W`
+
+## Remember
+
+- This is just one way of controlling!
+- So, like when we were controlling with our explain-and-subtract method, in order for this to work we need to measure and match on *all* variables we need to control for to close back doors
+- Why do this when we can just do the other method? 
+- Some nice statistical properties, other not-so-nice ones, conceptually simple. It's not overwhelmingly better
+
+## Matching
+
+- There are *many* methods for matching. 
+- What we're going to do is first cover the basic concept
+- And then we will actually perform *one* variant of matching called Coarsened Exact Matching
+
+## Matching
+
+Every matching estimator follows the same basic concept:
+
+1. Pick a set of variables `W1`, `W2`, etc., to match on
+2. Separate out the treated and untreated
+3. For each treated observation, check how "close" each untreated observation is on the matching variables
+4. Compare the average treated `Y` vs. the average untreated `Y`, *counting untreated obs more heavily the closer they are*
+
+Many many many ways to do 3 and 4. Here's one...
+
+## For example, Caliper Matching
+
+- In order to do a caliper match on a variable `W`, what you do is:
+    1. Pick a caliper size `a`. The smaller it is, the closer the match, but the smaller your eventual sample is
+    2. For each treated observation `i`, find all *untreated* observations for which their `W` is within `a` of `W[i]` (e.g. if `a=.1` and the treated observation has `W = 2`, find the untreated observations with `W >= 1.9 & W <= 2.1`)
+    3. Drop all untreated observations that don't have a match (i.e. weight matched observations fully, drop unmatched ones completely)
+    4. Compare the average `Y` across treatment
+    
+## Caliper Matching
+
+```{r, dev='CairoPNG', echo=FALSE, fig.width=8,fig.height=7}
+set.seed(3000)
+df <- data.frame(xaxisTime=runif(60),Treated=c(rep("Treated",5),rep("Control",55))) %>%
+  mutate(Y = 3+.4*xaxisTime+1*(Treated=="Treated")+rnorm(60),
+         state="1")
+
+#Make sure the treated obs aren't too close together, that makes it confusing
+df[df$Treated=="Treated",]$xaxisTime <- c(1:5/6)+(runif(5)-.5)*.1
+
+caliper <- .02
+
+df <- df %>%
+  mutate(bins = c(rep(filter(df,Treated=="Treated")$xaxisTime-caliper,6),
+                  rep(filter(df,Treated=="Treated")$xaxisTime+caliper,6))) %>%
+  #There has to be a less clunky way to do this
+  rowwise() %>%
+  mutate(matchmeas = min(abs(xaxisTime-filter(df,Treated=="Treated")$xaxisTime))) %>%
+  mutate(match = matchmeas < caliper) %>%
+  group_by(Treated,match) %>%
+  mutate(mean_Y = ifelse(match==1,mean(Y),NA)) %>%
+  ungroup()
+
+dffull <- rbind(
+  #Step 1: Raw data only
+  df %>% mutate(bins=NA,mean_Y=NA,state='1. Start with raw data.'),
+  #Step 2: Add Y-lines
+  df %>% mutate(mean_Y=NA,state='2. Look for Controls with similar W values to the Treatments.'),
+  #Step 3: Drop unmatch obs
+  df %>% mutate(Y = ifelse(match==1,Y,NA),mean_Y=NA,state="3. Keep Controls only if they're similar enough."),
+  #Step 4: Take means
+  df %>% mutate(Y = ifelse(match==1,Y,NA),bins=NA,state="4. Among what's kept, see what the treatment explains."),
+  #Step 5: Eliminate everything but the means
+  df %>% mutate(Y = ifelse(match==1,mean_Y,NA),bins=NA,state="5. Ignore everything not explained by treatment."),
+  #Step 6: Get treatment effect
+  df %>% mutate(Y = NA,bins=NA,state="6. The treatment effect is the remaining difference."))
+
+
+p <- ggplot(dffull,aes(y=Y,x=xaxisTime,color=Treated,size=Treated))+geom_point()+
+  geom_vline(aes(xintercept=bins))+
+  geom_hline(aes(yintercept=mean_Y,color=Treated))+
+  geom_segment(aes(x=.5,xend=.5,
+                   y=ifelse(state=="6. The treatment effect is the remaining difference.",
+                            filter(df,Treated=="Treated")$mean_Y[1],NA),
+                   yend=filter(df,Treated=="Control",match==TRUE)$mean_Y[1]),size=1.5,color='blue')+
+  scale_color_colorblind()+
+  scale_size_manual(values=c(2,3))+xlab("W")+
+  guides(fill=guide_legend(title="Group"))+
+  labs(title = 'The Effect of Treatment on Y while Matching on W (with a caliper) \n{next_state}')+
+  transition_states(state,transition_length=c(12,16,16,16,16,16),state_length=c(50,36,30,30,30,50),wrap=FALSE)+
+  ease_aes('sine-in-out')+
+  exit_fade()+enter_fade()
+
+animate(p,nframes=200)
+```
+
+## Coarsened Exact Matching
+
+- A relatively new entrant to the matching world is Coarsened Exact Matching. This is the one we're going to actually *do*
+- I want to be very clear: this isn't the *best* version of matching or anything like that
+- It's just one that we can actually carry out with our current tools.
+- And it is pretty popular anywhere you have big data. Data science people sometimes call it looking for "doppelgangers"
+
+## Coarsened Exact Matching
+
+- The basic idea of Coarsened Exact Matching is that you only count someone as a match if they are the same as the treatment variable *exactly, on every matching variable*
+- This is of course impossible with continuous variables, so you split those into bins ("coarsening" them) first
+- Make sure to weight the untreated observations so each treated observation is matched to the same number of untreated ones
+- Bonus: this is the easiest way, in this class, to control for more than one variable
+
+## Coarsened Exact Matching
+
+- Let's see if there's a wage premium to being in a union
+- Of course, many back doors: different demographics, or more experienced workers, certain kind of jobs, or be more common in particular regions
+
+```{r, dev='CairoPNG', fig.width=7, fig.height=4}
+dag <- dagify(wage~union+male+exper+south+bluecol+etc,
+              union~male+exper+south+bluecol+etc,
+              coords=list(
+                x=c(wage=4,union=1,male=1,exper=1.75,south=2.5,bluecol=3.25,etc=4),
+                y=c(wage=1,union=1,male=2,exper=2,south=2,bluecol=2,etc=2)
+              )) %>% tidy_dagitty()
+ggdag(dag,node_size=20)
+```
+
+## Coarsened Exact Matching
+
+- So let's compare union members to non-union members in the Panel Study of Income Dynamics from 1976-1982 that are EXACTLY THE SAME on:
+- Gender, years of experience, living in the south, blue-collar job, living in a city (SMSA), being married, being black, and years of education
+- Years of experience and years of education are continuous, so we'll need to coarsen (`cut()`) them first
+
+## Coarsened Exact Matching
+
+```{r, echo=FALSE}
+#PSST if you're looking in the code!
+#this data set is actually panel data and so not quite appropriate for matching this way
+#but the idea is just to demonstrate the method here
+```
+
+```{r, echo=TRUE}
+library(Ecdat)
+data(Wages)
+
+#Coarsen
+Wages <- Wages %>% mutate(ed.coarse = cut(ed,breaks=3),
+                        exp.coarse = cut(exp,breaks=3))
+#Split up the treated and untreated
+union <- Wages %>% filter(union=='yes')
+nonunion <- Wages %>% filter(union=='no') %>%
+  #For every potential complete-match, let's get the average Y
+  group_by(ed.coarse,exp.coarse,bluecol,
+           ind,south,smsa,married,sex,black) %>%
+  summarize(untreated.lwage = mean(lwage))
+```
+
+## Coarsened Exact Matching
+
+- `join`, aka merging, is how you can link up two data sets when they match on a list of variables, i.e. "exact matches"!
+- There are many flavors of `join` (see `help(join)`). The one we want is `inner_join()` which only keeps successful matches, both treated and untreated
+
+```{r, echo = TRUE}
+union %>% inner_join(nonunion) %>%
+  summarize(union.mean = mean(lwage),nonunion.mean=mean(untreated.lwage))
+
+#Original union and nonunion counts, and matched union count
+c(sum(Wages$union=='yes'),sum(Wages$union=='no'),nrow(union %>% inner_join(nonunion)))
+```
+
+```{r, echo = FALSE, eval=TRUE}
+results <- union %>% inner_join(nonunion) %>%
+  summarize(union.mean = mean(lwage),nonunion.mean=mean(untreated.lwage))
+```
+
+## Coarsened Exact Matching
+
+- `r round(results$union.mean[1],3)` vs. `r round(results$nonunion.mean[1],3)` - not bad! A `r round(results$union.mean[1]-results$nonunion.mean[1],3)` difference
+- Which, since we used log wage, means a `r 100*round(results$union.mean[1]-results$nonunion.mean[1],3)`% wage bump for being in a union!
+- Compared to - and this is the whole point - a comparable "control" group
+
+## Control Groups 
+
+- Remember, that's the point of matching (and, really, controlling generally), to find the untreated observations that can serve as a control group to compare to our treated group
+- We can't observe what *would* have happened in the counterfactual where they didn't get treatment, but if we pick the most-comparable untreated group possible, that's about as close as we can get!
+
+## Control Groups 
+
+- And if we assume that the variables we picked are enough to block all the back doors, then picking a comparable (i.e. back-doors-closed) control group is exactly what we did!
+- It's the same idea as our remove-explained-variation approach to controlling, but it's more explicit about the idea that this is what we're doing - constructing a "control group"
+
+## Control Groups
+
+- This basic concept turns out to be behind a *lot* of causal inference methods
+- Many involve variants on matching, like Propensity Score Matching, which matches on your estimated "propensity" to get treatment, or Inverse Probability Weighting, where we don't *drop* you for not matching, we just *downweight* you, or Synthetic Control where you also match on outcomes from before treatment, and see how outcomes change after treatment is applied to just some of the groups
+- But there are also a lot that don't use matching at all, and construct control groups in different ways
+
+## Control Groups
+
+- And we might need some other method, right? After all, with the methods for controlling for stuff we have, we have to measure everything, and that's just not possible!
+- Fixed effects helped a little - they control for everything *fixed* about an individual, saving us a lot of trouble. But that doesn't cover everything!
+- We ideally want to have some way of constructing a comparison group that *doesn't* require us to measure everything
+
+## The Experimental Ideal
+
+- When we run a randomized experiment, we are basically making sure that, on average, the treated and control groups are exactly the same before we apply treatment
+- Not just on variables we measure, but also on variables we don't! 
+- Because we assigned it randomly, any given variable will be, on average, the same in the treated and control group
+- This is basically what we're trying to mimic, and force to be the case, with matching. But we can only do it for what we observe
+
+## Natural Experiments
+
+- As we move forward, other approaches to picking control groups will have to do with trying to get even closer to this experimental ideal
+- Picking treatment and control groups in such a way that, in that context, assignment to treatment basically *is* random
+- When we manage to do this, find "random" experiments in observational data, we call this a *natural experiment*
+
+## Natural Experiments
+
+- You can think of natural experiments as trying to do matching *without doing matching* 
+- A natural experiment is when you find a context, and potentially a subgroup, where the treatment and control groups are already matched, not just on what you can measure, but also on what you can't
+- We will start with the first of these methods, called difference-in-difference, next time.
+
+## Practice
+
+- Does having kids in the house affect how much time you spend eating? Install and load the `atus` package, from the American Time Use Survey. Load the `atusresp` and `atusact` data sets. 
+- Filter `atusact` to `tiercode==110101` (eating and drinking). Then `inner_join` it with `atusresp`. Call the result `eating` and `ungroup()` it
+- Limit the data to dur, hh_child, labor_status, student_status, work_hrs_week, partner_hh, weekly_earn, tuyear
+- `eating <- na.omit(eating)` to nuke missing data
+- Get mean difference of `dur` by `hh_child`, matching on everything else, using `cut(,breaks=5)` for everything that's not a factor.
+
+## Practice Answers
+
+```{r, echo=TRUE}
+library(atus)
+data(atusresp)
+data(atusact)
+eating <- atusact %>% filter(tiercode==110101) %>% inner_join(atusresp) %>% ungroup() %>%
+  select(dur, hh_child, labor_status, student_status, work_hrs_week, partner_hh, weekly_earn, tuyear) %>%
+  na.omit() %>%
+  mutate(hrs.c = cut(work_hrs_week,breaks=5),earn.c = cut(weekly_earn,breaks=5),year.c = cut(tuyear,breaks=5))
+
+kids <- filter(eating,hh_child=='yes')
+nokids <- eating %>% filter(hh_child=='no') %>%
+  group_by(hrs.c,earn.c,year.c,labor_status,student_status,partner_hh) %>%
+  summarize(nokids.dur = mean(dur))
+kids %>% inner_join(nokids) %>% summarize(kids.dur=mean(dur),nokids.dur=mean(nokids.dur))
+```

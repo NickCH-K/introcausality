@@ -1,0 +1,363 @@
+---
+title: "Lecture 8: Summarizing Data Part 2: Plots"
+author: "Nick Huntington-Klein"
+date: "January 29, 2019"
+output:   
+  revealjs::revealjs_presentation:
+    theme: solarized
+    transition: slide
+    self_contained: true
+    smart: true
+    fig_caption: true
+    reveal_options:
+      slideNumber: true
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(stargazer)
+library(Ecdat)
+theme_set(theme_gray(base_size = 15))
+```
+
+## Recap
+
+- Summary statistics are ways of describing the *distribution* of a variable
+- Examples include mean, percentiles, SD, and specific percentiles of interest (median, min, max)
+- Another, very good way to describe a variable is by actually showing that distribution with a graph
+- I showed you plenty of graphs last time, this time I'm going to show you how to make them yourself!
+
+## Note about ggplot
+
+- As I mentioned before, we're going straightforward, doing our plotting with base R
+- In the case of plotting, it's going to be easier to use base R, but also not look as good as the alternative, `ggplot2`, which is also in the tidyverse package.
+- `ggplot2` code for plots will be available in the slides. Just search for 'ggplot'
+- And have also been for most previous slides - I've been making most graphs with it!
+- Don't forget extra credit opportunity for learning `ggplot2`
+
+
+## Plot types we will cover:
+
+- Density plots (for continuous)
+- Histograms (for continuous)
+- Box plots (for continuous)
+- Bar plots (for categorical)
+- Plus:
+    - Adding plots together
+    - Putting lines on plots
+    - Makin 'em look good!
+
+## Plots we won't:
+
+- Lots and lots and lots of plot options
+- Mosaics, Sankey plots, pie graphs
+- Some aren't common in Econ but could be!
+- Others are just too tricky (like *maps*)
+- See [The R Graph Gallery](https://www.r-graph-gallery.com/)
+
+## Density plots and histograms
+
+- Density plots and histograms will show you the full distribution of the variable
+- Values along the x-axis, and how often those values show up on y
+- The difference - density plots will present a smooth line by averaging nearby values
+- A histogram will create "bins" and tell you how many observations fall into each
+- (don't forget we can save plots using Export in the Plots pane)
+
+## Density plots
+
+- To make a density plot, we take our variable and make a `density()` object out of it, then `plot()` that thing!
+- Let's play around with data from the `Ecdat` package
+
+```{r, echo=TRUE, eval=FALSE}
+install.packages('Ecdat')
+library(Ecdat)
+data(MCAS)
+plot(density(MCAS$totsc4))
+```
+```{r fig.width=4.5, fig.height=3.5, echo=FALSE, eval=TRUE}
+data(MCAS)
+plot(density(MCAS$totsc4))
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#THE GGPLOT2 WAY
+library(Ecdat)
+library(tidyverse)
+data(MCAS)
+
+ggplot(MCAS,aes(x=totsc4))+stat_density(geom='line')
+```
+
+## Titles and labels
+
+- Readability is super important in graphs
+- Add labels and titles! Titles with 'main' and axis labels with 'xlab' and 'ylab'
+
+```{r fig.width=5, fig.height=4, echo=TRUE, eval=TRUE}
+plot(density(MCAS$totsc4),main='Massachusetts Test Scores',
+     xlab='Fourth Grade Test Scores')
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#THE GGPLOT2 WAY
+library(tidyverse)
+
+ggplot(MCAS,aes(x=totsc4))+stat_density(geom='line')+
+  ggtitle('Massachusetts Test Scores')+
+  xlab('Fourth Grade Test Scores')
+```
+
+
+## Histograms
+
+- Histograms require a little less typing - just `hist()`
+
+```{r fig.width=5, fig.height=4, echo=TRUE, eval=TRUE}
+hist(MCAS$totsc4)
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#THE GGPLOT2 WAY
+library(tidyverse)
+
+ggplot(MCAS,aes(x=totsc4))+geom_histogram()
+```
+
+## Histograms
+
+- These need labels too! Other important options:
+- Do proportions with `freq=FALSE`, or change how many bins there are, or where they are, with `breaks`
+
+```{r fig.width=5, fig.height=4, echo=TRUE, eval=TRUE}
+hist(MCAS$totsc4,xlab="Fourth Grade Test Scores",
+     main="Test Score Histogram",freq=FALSE,breaks=50)
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#THE GGPLOT2 WAY
+library(tidyverse)
+
+#If we want proportions we need to calculate it ourselves
+ggplot(MCAS,aes(x=totsc4))+geom_histogram(aes(y=(..count..)/sum(..count..)),bins=50)+
+  ggtitle("Test Score Histogram")
+  xlab("Fourth Grade Test Scores")
+```
+
+## Box plots
+
+- Less common in economics, but a good way to look at your data
+- And check for outliers!
+- Basically a summary table in graph form
+- Shows the 25%, 50%, 75% percentiles
+- Plus lines that represent 1.5 IQR (75th minus 25th)
+- And dots for anything otuside that range
+
+## Box plots
+
+- Simple!
+- Note the negative outliers - not necessarily a problem but good to know!
+
+```{r fig.width=5, fig.height=4, echo=TRUE, eval=TRUE}
+boxplot(MCAS$totsc4,main="Box Plot of 4th Grade Scores")
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#THE GGPLOT2 WAY
+library(tidyverse)
+
+ggplot(MCAS,aes(y=totsc4))+geom_boxplot()+
+  ggtitle("Box Plot of 4th Grade Scores")
+```
+
+## Box plots
+
+- Easy to look at multiple variables at once, too
+
+```{r fig.width=5, fig.height=4, echo=TRUE, eval=TRUE}
+boxplot(select(MCAS,totsc4,totsc8),main="Box Plot of 4th Grade Scores")
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#THE GGPLOT2 WAY
+library(tidyverse)
+
+#Unfortunately, for this we need to change the format of the data
+#putting it in "long" format by "melt"ing it (from the reshape2 package)
+#and then identifying which variable it is by "group"
+library(reshape2)
+scores <- melt(MCAS,id.vars="code",measure.vars=c("totsc4","totsc8"))
+ggplot(scores,aes(x=variable,y=value,group=variable))+geom_boxplot()+
+  ggtitle("Box Plot of 4th Grade Scores")
+```
+
+## Bar plots
+
+- Last time we talked about the `table()` command, which shows us the whole distribution of a *categorical* variable
+- Still a great command! Let's look at majors of students taking advanced micro from a mid-1980s sample in the `Ecdat` package
+
+```{r, echo=TRUE}
+data(Mathlevel)
+table(Mathlevel$major)
+```
+
+## Bar plots
+
+- Bar plots, express this table, graphically
+- Stick that table in there!
+
+```{r fig.width=6, fig.height=5, echo=TRUE, eval=TRUE}
+barplot(table(Mathlevel$major),main="Majors of Students in Advanced Microeconomics Class")
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#THE GGPLOT2 WAY
+library(tidyverse)
+
+ggplot(Mathlevel,aes(x=major))+geom_bar()+
+  ggtitle("Majors of Students in Advanced Microeconomics Class")
+```
+
+## Bar plots
+
+- And, just like before, we can make it a proportion instead of a count by wrapping that `table()` in `prop.table()`
+
+```{r fig.width=6, fig.height=5, echo=TRUE, eval=TRUE}
+barplot(prop.table(table(Mathlevel$major)),main="Majors of Students in Advanced Microeconomics Class")
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#THE GGPLOT2 WAY
+library(tidyverse)
+
+#Note that to get a proportion here we sort of need to calculate it ourselves
+#in the aes() argument of geom_bar
+ggplot(Mathlevel,aes(x=major))+geom_bar(aes(y = (..count..)/sum(..count..)))+
+  ggtitle("Majors of Students in Advanced Microeconomics Class")
+```
+
+## Adding Lines
+
+- It's pretty common for us to want to add some explanatory lines to our graphs
+- For example, adding mean/median/etc. to a density
+- Or showing where 0 is
+- We can do this with `abline()` which adds a line with a given intercept (a) and slope (b), after we make our plot.
+
+## Adding Lines
+
+- After creating the plot, THEN add the `abline(intercept,slope)`, or `abline(h=horizontal)`, `abline(v=vertical)` for horizontal or vertical numbers
+
+```{r echo=TRUE, eval=FALSE}
+hist(MCAS$totsc4)
+passingscore <- 705
+abline(0,1)
+abline(v=passingscore,col='red')
+abline(h=50)
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#THE GGPLOT2 WAY
+library(tidyverse)
+
+passingscore <- 705
+ggplot(MCAS,aes(x=totsc4))+geom_histogram()+
+  geom_vline(aes(xintercept=passingscore),col='red')+
+  geom_hline(aes(yintercept=50))+
+  geom_abline(aes(intercept=0,slope=1))
+```
+
+## Adding Lines
+
+```{r fig.width=6, fig.height=5, echo=TRUE, eval=TRUE}
+hist(MCAS$totsc4)
+passingscore <- 705
+abline(v=passingscore,col='red')
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#THE GGPLOT2 WAY
+library(tidyverse)
+
+passingscore <- 705
+ggplot(MCAS,aes(x=totsc4))+geom_histogram()+
+  geom_vline(aes(xintercept=passingscore),col='red')
+```
+
+## Adding Lines
+
+- A common use of adding lines is to show where the mean or median of the distribution is, as I did in the last lecture
+
+```{r fig.width=5, fig.height=4, echo=TRUE, eval=TRUE}
+plot(density(MCAS$totsc4))
+abline(v=mean(MCAS$totsc4),col='red')
+abline(v=median(MCAS$totsc4),col='blue')
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#THE GGPLOT2 WAY
+library(tidyverse)
+
+#Note that color OUTSIDE of aes() colors the line
+#color INSIDE of aes() acts like group
+ggplot(MCAS,aes(x=totsc4))+geom_histogram()+
+  geom_vline(aes(xintercept=mean(totsc4)),color='red')+
+  geom_vline(aes(xintercept=median(totsc4)),color='blue')
+```
+
+## Overlaying Densities
+
+- Sometimes it's nice to be able to compare two distributions
+- Because density plots are so simple, we can do this by overlaying them
+- The `lines()` function will, like `abline()`, add a line to  your graph
+- But it can do this with a density! Be sure to set colors so you can tell them apart
+
+## Overlaying Densities
+
+```{r fig.width=6, fig.height=5, echo=TRUE, eval=TRUE}
+plot(density(filter(MCAS,tchratio < median(tchratio))$totsc4),
+     col='red',main="Mass. Fourth-Grade Test Scores by Teacher Ratio")
+lines(density(filter(MCAS,tchratio >= median(tchratio))$totsc4),col='blue')
+```
+
+## Practice
+
+- Install `Ecdata`, load it, and get the `MCAS` data
+- Make a density plot for `totsc4`, and add a vertical green dashed (tough!) line at the median
+- Create a bar plot showing the *proportion* of observations that have nonzero values of `bilingua`
+- Create a box plot for totday, and add a horizontal line at the mean
+- Go back and add appropriate titles and/or axis labels to all graphs
+
+## Practice answers
+
+```{r echo = TRUE, eval = FALSE}
+install.packages('Ecdata')
+library(Ecdata)
+data(MCAS)
+plot(density(MCAS$totsc4),xlab="4th Grade Test Score")
+abline(v=median(MCAS$totsc4),col='green',lty='dashed')
+
+MCAS <- MCAS %>% mutate(nonzerobi = bilingua > 0)
+barplot(prop.table(table(MCAS$nonzerobi)),main="Nonzero Spending Per Bilingual Student")
+
+boxplot(MCAS$totday,main="Spending Per Pupil")
+abline(h=mean(MCAS$totday))
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#THE GGPLOT2 WAY
+library(tidyverse)
+
+ggplot(MCAS,aes(x=totsc4))+stat_density(geom='line')+
+  geom_vline(aes(xintercept=median(totsc4)),color='green',linetype='dashed')+
+  xlab("4th Grade Test Score")
+
+MCAS <- MCAS %>%
+  mutate(nonzerobi = MCAS$bilingua > 0)
+ggplot(MCAS,aes(x=nonzerobi))+geom_bar()+
+  ggtitle("Nonzero Spending Per Bilingual Student")
+
+ggplot(MCAS,aes(y=totday))+geom_boxplot()+
+  geom_hline(aes(yintercept=mean(totday)))+
+  ggtitle("Spending Per Pupil")
+```

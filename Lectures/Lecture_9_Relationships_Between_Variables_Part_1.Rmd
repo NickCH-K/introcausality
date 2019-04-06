@@ -1,0 +1,324 @@
+---
+title: "Lecture 9: Relationships Between Variables, Part 1"
+author: "Nick Huntington-Klein"
+date: "February 5, 2019"
+output:   
+  revealjs::revealjs_presentation:
+    theme: solarized
+    transition: slide
+    self_contained: true
+    smart: true
+    fig_caption: true
+    reveal_options:
+      slideNumber: true
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(stargazer)
+library(Ecdat)
+library(haven)
+theme_set(theme_gray(base_size = 15))
+```
+## Recap
+
+- Summary statistics are ways of describing the *distribution* of a variable
+- We can also just look at the variable directly
+- Understanding a variable's distribution is important if we want to use it
+
+## This week
+
+- We aren't just interested in looking at variables by themselves!
+- We want to know how variables can be *related* to each other
+- When `X` is high, would we expect `Y` to also be high, or be low?
+- How are variables *correlated*?
+- How does one variable *explain* another?
+- How does one variable *cause* another? (later!)
+
+## What Does it Mean to be Related?
+
+- We would consider two variables to be *related* if knowing something about *one* of them tells you something about the other
+- For example, consider the answer to two questions:
+    - Are you a man?
+    - Are you pregnant?
+- What do you think is the probability that a random person is pregnant?
+- What do you think is the probability that a random person *who is a man* is pregnant?
+
+## What does it Mean to be Related?
+
+Some terms: 
+
+- Variables are *dependent* on each other if telling you the value of one gives you information about the distribution of the other
+- Variables are *correlated* if knowing whether one of them is *unusually high* gives you information about whether the other is *unusually high* (positive correlation) or *unusually low* (negative correlation)
+- *Explaining* one variable `Y` with another `X` means predicting *your `Y`* by looking at the distribution of `Y` for *your* value of `X`
+- Let's look at two variables as an example
+
+## An Example: Dependence
+
+```{r, echo=FALSE, eval=TRUE}
+wage1 <- read_stata("http://fmwww.bc.edu/ec-p/data/wooldridge/wage1.dta")
+```
+
+```{r, echo=TRUE, eval=TRUE}
+table(wage1$numdep,wage1$smsa,dnn=c('Num. Dependents','Lives in Metropolitan Area'))
+```
+
+## An Example: Dependence
+
+- What are we looking for here?
+- For *dependence*, simply see if the distribution of one variable changes for the different values of the other.
+- Does the distribution of Number of Dependents differ based on your SMSA status?
+
+```{r, echo=TRUE, eval=TRUE}
+prop.table(table(wage1$numdep,wage1$smsa,dnn=c('Num. Dependents','Lives in Metropolitan Area')),margin=2)
+```
+
+## An Example: Dependence
+
+- Does the distribution of SMSA differ based on your Number of Dependents Status?
+
+```{r, echo=TRUE, eval=TRUE}
+prop.table(table(wage1$numdep,wage1$smsa,dnn=c('Number of Dependents','Lives in Metropolitan Area')),margin=1)
+```
+
+- Looks like it!
+- What do these two results mean?
+
+
+## An Example: Correlation
+
+- We are interested in whether two variables tend to *move together* (positive correlation) or *move apart* (negative correlation)
+- One basic way to do this is to see whether values tend to be *high* together
+- One way to check in dplyr is to use `group_by()` to organize the data into groups
+- Then `summarize()` the data within those groups
+
+```{r, echo=TRUE}
+wage1 %>% 
+  group_by(smsa) %>%
+  summarize(numdep=mean(numdep))
+```
+
+- When `smsa` is high, `numdep` tends to be low - negative correlation!
+
+## An Example: Correlation
+
+- There's also a summary statistic we can calculate *called* correlation, this is typically what we mean by "correlation"
+- Ranges from -1 (perfect negative correlation) to 1 (perfect positive correlation)
+- Basically "a one-standard deviation increase in `X` is associated with a correlation-standard-deviation increase in `Y`"
+
+```{r, echo=TRUE, eval=TRUE}
+cor(wage1$numdep,wage1$smsa)
+cor(wage1$smsa,wage1$numdep)
+```
+
+## An Example: Explanation
+
+Let's go back to those different means:
+
+
+```{r, echo=FALSE, eval=TRUE}
+#THE DPLYR WAY
+wage1 %>% 
+  group_by(smsa) %>%
+  summarize(numdep=mean(numdep))
+```
+
+- Explanation would be saying that, based on this, if you're in an SMSA, I predict that you have `r mean(filter(wage1,smsa==1)$numdep)` dependents, and if you're not, you have `r mean(filter(wage1,smsa==0)$numdep)` dependents
+- If you are in an SMSA and have 2 dependents, then `r mean(filter(wage1,smsa==1)$numdep)` of those dependents are *explained by SMSA* and 2 - `r mean(filter(wage1,smsa==1)$numdep)` = `r 2-mean(filter(wage1,smsa==1)$numdep)` of them are *unexplained by SMSA*
+- We'll talk a lot more about this later
+
+## Coding Recap
+
+- `table(df$var1,df$var2)` to look at two variables together
+- `prop.table(table(df$var1,df$var2))` for the \n proportion in each cell
+- `prop.table(table(df$var1,df$var2),margin=2)` to get proportions *within each column*
+- `prop.table(table(df$var1,df$var2),margin=1)` to get proportions *within each row*
+- `df %>% group_by(var1) %>% summarize(mean(var2))` \n to get mean of var2 for each value of var1
+- `cor(df$var1,df$var2)` to calculate correlation
+
+## Graphing Relationships
+
+- Relationships between variables can be easier to see graphically
+- And graphs are extremely important to understanding relationships and the "shape" of those relationships
+
+## Wage and Education
+
+- Let's use `plot(xvar,yvar)` with *two* variables
+
+```{r, echo=TRUE, eval=TRUE, fig.width=7, fig.height=3.5}
+plot(wage1$educ,wage1$wage,xlab="Years of Education",ylab="Wage")
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#THE GGPLOT2 WAY
+ggplot(wage1,aes(x=educ,y=wage))+geom_point()+
+  xlab('Years of Education')+
+  ylab('Wage')
+```
+
+- As we look at different values of `educ`, what changes about the values of `wage` we see?
+
+## Graphing Relationships
+
+- Try to picture the *shape* of the data
+- Should this be a straight line? A curved line? Positively sloped? Negatively?
+
+```{r, echo=TRUE, eval=TRUE, fig.width=7, fig.height=3.5}
+plot(wage1$educ,wage1$wage,xlab="Years of Education",ylab="Wage")
+abline(-.9,.5,col='red')
+plot(function(x) 5.4-.6*x+.05*(x^2),0,18,add=TRUE,col='blue')
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#THE GGPLOT2 WAY
+ggplot(wage1,aes(x=educ,y=wage))+geom_point()+
+  xlab('Years of Education')+
+  ylab('Wage')+
+  geom_abline(aes(intercept=-.9,slope=.5),col='red')+
+  stat_function(fun=function(x) 5.4-.6*x+.05*(x^2),col='blue')
+```
+
+## Graphing Relationships
+
+- `plot(xvar,yvar)` is extremely powerful, and will show you relationships at a glance
+- The previous graph showed a clear positive relationship, and indeed `cor(wage1$wage,wage1$educ)` = `r cor(wage1$wage,wage1$educ)`
+- Further, we don't only see a positive relationship, but we have some sense of *how* positive it is, what it looks like roughly
+- Let's look at some more
+
+## Graphing Relationships
+
+- Let's compare clothing sales volume vs. profit margin for men's clothing firms
+
+```{r, echo=TRUE, eval=FALSE}
+library(Ecdat)
+data(Clothing)
+plot(Clothing$sales,Clothing$margin,xlab="Gross Sales",ylab="Margin")
+```
+
+```{r, echo=FALSE, eval=TRUE, fig.width=, fig.width=7, fig.height=3.5}
+data(Clothing)
+plot(Clothing$sales,Clothing$margin,xlab="Gross Sales",ylab="Margin")
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#THE GGPLOT2 WAY
+library(Ecdat)
+data(Clothing)
+ggplot(Clothing,aes(x=sales,y=margin))+geom_point()+
+  xlab('Gross Sales')+
+  ylab('Margin')
+```
+
+- No clear up-or-down relationship (although the correlation is `r cor(Clothing$sales,Clothing$margin)`!) but clearly the variance is higher for low sales
+
+## Graphing Relationships
+
+- Comparing Singapore diamond prices vs. carats
+
+```{r, echo=TRUE, eval=FALSE}
+library(Ecdat)
+data(Diamond)
+plot(Diamond$carat,Diamond$price,xlab="Number of Carats",ylab="Price")
+```
+
+```{r, echo=FALSE, eval=TRUE, fig.width=, fig.width=7, fig.height=3.5}
+data(Diamond)
+plot(Diamond$carat,Diamond$price,xlab="Number of Carats",ylab="Price")
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#THE GGPLOT2 WAY
+library(Ecdat)
+data(Diamond)
+ggplot(Diamond,aes(x=carat,y=price))+geom_point()+
+  xlab('Number of Carats')+
+  ylab('Price')
+```
+
+## Graphing Relationships
+
+- Another way to graph a relationship, especially when one of the variables only takes a few values, is to plot the `density()` function for different values
+
+```{r, echo=FALSE, eval=TRUE,  fig.width=7, fig.height=3.5}
+plot(density(filter(wage1,married==0)$wage),col='blue',xlab="Wage",main="Wage Distribution; Blue = Unmarried, Red = Married")
+lines(density(filter(wage1,married==1)$wage),col='red')
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#THE GGPLOT2 WAY
+ggplot(filter(wage1,married==0),aes(x=wage))+stat_density(geom='line',col='blue')+
+  xlab('Wage')+
+  ylab('Density')+
+  ggtitle("Wage Distribution; Blue = Unmarried, Red = Married")+
+  stat_density(data=filter(wage1,married==1),geom='line',col='red')
+```
+
+- Clearly different distributions: married people earn more!
+
+## Graphing relationships
+
+- We can back that up other ways
+
+```{r, echo=TRUE,eval=TRUE}
+wage1 %>% group_by(married) %>% summarize(wage = mean(wage))
+cor(wage1$wage,wage1$married)
+```
+
+## Keep in mind!
+
+- Just because two variables are *related* doesn't mean we know *why*
+- If `cor(x,y)` is positive, it could be that `x` causes `y`... or that `y` causes `x`, or that something else causes both!
+- Or many other configurations... we'll talk about this after the midterm
+- Plus, even if we know the direction we may not know *why* that cause exists.
+
+## For example
+
+```{r, echo=TRUE, eval=TRUE,  fig.width=7, fig.height=5}
+addata <- read.csv('http://www.nickchk.com/ad_spend_and_gdp.csv')
+plot(addata$AdSpending,addata$GDP,
+     xlab='Ad Spend/Year (Mil.)',ylab='US GDP (Bil.)')
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#THE GGPLOT2 WAY
+ggplot(addata,aes(x=AdSpending,y=GDP))+geom_point()+
+  xlab('Ad Spend/Year (Mil.)')+
+  ylab('US GDP (Bil.)')
+```
+
+## For example
+
+- The correlation between ad spend and GDP is `r cor(addata$AdSpending,addata$GDP)`
+- Does this mean that ads make GDP go up?
+- To some extent, yes (ad spending factors directly into GDP)
+- But that doesn't explain all of it!
+- Why else might this relationship exist?
+
+## Practice
+
+- Install the `SMCRM` package, load it, get the `customerAcquisition` data. Rename it ca
+- Among `acquisition==1` observations, see if the size of first purchase is related to duration as a customer, with `cor` and (labeled) `plot`
+- See if `industry` and `acquisition` are dependent on each other using `prop.table` with the `margin` option
+- See if average revenues differ between industries using `aggregate`, then check the `cor`
+- Plot the density of revenues for `industry==0` in blue and, on the same graph, revenues for `industry==1` in red
+- In each case, think about relationship is suggested
+
+## Practice Answers
+
+```{r, echo=TRUE, eval=FALSE}
+install.packages('SMCRM')
+library(SMCRM)
+data(customerAcquisition)
+ca <- customerAcquisition
+cor(filter(ca,acquisition==1)$first_purchase,filter(ca,acquisition==1)$duration)
+plot(filter(ca,acquisition==1)$first_purchase,filter(ca,acquisition==1)$duration,
+     xlab="Value of First Purchase",ylab="Customer Duration")
+prop.table(table(ca$industry,ca$acquisition),margin=1)
+prop.table(table(ca$industry,ca$acquisition),margin=2)
+aggregate(revenue~industry,data=ca,FUN=mean)
+cor(ca$revenue,ca$industry)
+plot(density(filter(ca,industry==0)$revenue),col='blue',xlab="Revenues",main="Revenue Distribution")
+lines(density(filter(ca,industry==1)$revenue),col='red')
+```

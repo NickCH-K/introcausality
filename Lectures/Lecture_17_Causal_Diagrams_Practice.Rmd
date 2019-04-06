@@ -1,0 +1,86 @@
+---
+title: "Lecture 17 Causal Diagram Practice"
+author: "Nick Huntington-Klein"
+date: "March 3, 2019"
+output:   
+  revealjs::revealjs_presentation:
+    theme: solarized
+    transition: slide
+    self_contained: true
+    smart: true
+    fig_caption: true
+    reveal_options:
+      slideNumber: true
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE)
+library(tidyverse)
+library(dagitty)
+library(ggdag)
+library(gganimate)
+library(ggthemes)
+library(Cairo)
+theme_set(theme_gray(base_size = 15))
+```
+
+## Recap
+
+- To make a diagram:
+- List all the relevant variables
+- Combine identical variables, eliminate unimportant ones
+- Draw arrows to indicate what you think causes what
+- (See if the model implies that any relationships SHOULDN'T exist and test that)
+- Think carefully!
+
+## Recap
+
+- If we're interested in the effect of `X` on `Y`:
+- Write the list of all paths from `X` to `Y`
+- Figure out which are front-door paths (going from `X` to `Y`)
+- and which are back-door paths (other ways)
+- Then figure out what set of variables need to be controlled/adjusted for to close those back doors
+
+## Testing Relationships
+
+- Just a little more detail on this "testing relationships" thing
+- Our use of front-door and back-door paths means that we can look at *any two variables* in our diagram and say "hmm, if I control for A, B, and C, then that closes all front and back door paths between D and E"
+- So, if we control for A, B, and C, then D and E should be unrelated!
+- If `cor(D,E)` controlling for A, B, C is big, our diagram is probably wrong!
+
+## Testing Relationships
+
+- What are some relationships we can test?
+
+```{r, dev='CairoPNG', echo=FALSE, fig.width=7, fig.height=5}
+dag <- dagify(B~A+D,
+              C~B+D,
+              E~C) %>% tidy_dagitty()
+ggdag(dag,node_size=20)
+```
+
+## Testing Relationships
+
+- We should get no relationship between: A and E controlling for C, B and E controlling for C, D and E controlling for C
+- (also D and A controlling for nothing, but we haven't gotten to why that one works yet, and A and C controlling for B and D, but we haven't covered why we need D there)
+- We'll be looking out for opportunities to test our models as we move forward! (note: dagitty will give us a list of what we can test!)
+
+
+## Today
+
+- In groups, read [the assigned article](https://www.nytimes.com/2019/01/21/upshot/stuck-and-stressed-the-health-costs-of-traffic.html)
+- Pick one of the causal claims in the article (there are a lot!)
+- [Hint: words like "improve" "affect" "reduces", ask if you're not sure]
+- Draw a diagram to investigate that causal question
+- Determine what needs to be controlled for to identify that effect
+- If there's a linked study to explain the claim, try to look at it and see if they use the appropriate controls
+- Extra time? Do another claim
+
+## Causal Inference in the News
+
+- Not long: 1-2 pages single-spaced plus diagram.
+- Find a news article that makes a causal claim (like the one we just did, but not that one) and interpret that claim by drawing an appropriate diagram in dagitty
+- Doesn't necessarily need to be a claim backed by a study or evidence, but it makes the assignment easier if it is
+- Justify your diagram (both your choice of variables and your arrows)
+- Explain how you would identify the causal claim, and discuss whether you think the article did so or not.

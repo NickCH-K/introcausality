@@ -1,0 +1,25 @@
+Admin/
+Exams/
+Homework/
+Animations/
+Cheat Sheets/Causal_Diagrams_Cheat_Sheet_files/
+Lectures/Lecture_2_Understanding_Data_files/
+Lectures/Lecture_3_Introduction_to_R_files/
+Lectures/Lecture_8_Summarizing_Data_Part_2_files/
+Lectures/Lecture_10_Relationships_Between_Variables_Part_2_files/
+Lectures/Lecture_12_Midterm_Review_files
+Lectures/Lecture_15_Drawing_Causal_Diagrams_files/
+Lectures/Lecture_16_Back_Doors_files
+Lectures/Lecture_17_Causal_Diagrams_Practice_files/
+Lectures/Lecture_18_Controlling_files/
+Lectures/Lecture_20_Untreated_Groups_files/
+Lectures/Lecture_21_Difference_in_Differences_files/
+Lectures/Lecture_22_Regression_Discontinuity_files/
+Lectures/Lecture_25_Instrumental_Variables_in_Action_files/
+Lectures/Lecture_26_Causal_Midterm_Review_files/
+Lectures/Lecture_27_Explaining_Better_Regression_files/
+Lectures/Lecture_28_Explaining_Better_Regression_2_files/
+Lectures/libs/
+Lectures/Versions without DPLYR/
+Lectures/.Rhistory
+

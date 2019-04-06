@@ -1,0 +1,365 @@
+---
+title: "Lecture 11: Simulating Data"
+author: "Nick Huntington-Klein"
+date: "February 12, 2019"
+output:   
+  revealjs::revealjs_presentation:
+    theme: solarized
+    transition: slide
+    self_contained: true
+    smart: true
+    fig_caption: true
+    reveal_options:
+      slideNumber: true
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(stargazer)
+theme_set(theme_gray(base_size = 15))
+```
+
+## Recap
+
+- Up to now, we've been looking at how to manipulate objects in R
+- And how to analyze data in R
+- Looking at the distributions of those variables
+- As well as how two variables relate to each other - dependence, correlation, explanation
+
+## And now!
+
+- What we'll be moving into soon is how to use these tools so that we can take data and actually *learn things*
+- Today we're going to get ready for that
+- How?
+- We're going to *learn some fake things*
+- Via simulation, i.e. creating fake data
+
+## Simulation
+
+- Why do this? Why not just use real data?
+- Because with real data, *we don't know what the right answer is*
+- So if we do some method, and it gives us an answer, how do we know we did the method right?
+- Simulation lets us *know the right answer* so we can check whether or not we *get* that right answer
+- And if we do, we know the method works (at least in our fake scenario), so now we can apply it to some real data
+
+## The purpose of data analysis
+
+- When it comes down to it, *what is the purpose of data analysis*? Why do we work with data?
+- When we work with data, we have this idea that there exists a *true model*
+- The *true model* is the way the world actually works!
+- But we don't know what that true model is
+
+## The purpose of data analysis
+
+- So that's where the data comes in
+- The true model is what *generated the data* (the 'data generating process')
+- So by looking at the data, and incorporating what we *think* we know about the true model, we're trying to work backwards to figure out what it is that *generated* that data - and that's the true model!
+- With simulation, *we know* what generated the data and what the true model is. So we know the right answer and can check how close we get.
+
+## Example
+
+- We've covered this example before
+- Let's generate 501 coin flips
+- The *true model* will be that this will generate heads half the time and tails half the time
+
+```{r, echo=TRUE}
+coins <- sample(c("Heads","Tails"),501,replace=T)
+```
+
+## Example
+
+- Now let's take that data as given and analyze it in our standard way!
+- The proportion of heads is `mean(coins=='Heads') = ``r mean(coins=='Heads')`
+- And we can look at the distribution, as we would:
+
+```{r, echo=TRUE,fig.width=4,fig.height=3.5}
+barplot(prop.table(table(coins)))
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#THE GGPLOT2 WAY
+ggplot(as.data.frame(coins),aes(x=coins))+geom_bar()
+```
+
+## Example
+
+- So what's our conclusion?
+- We'd come to the conclusion that the *true model* generates heads `r mean(coins=='Heads')` of the time
+- .500 is correct, so pretty close! But not exact. Did this whole thing work or not?
+- What if it *always* errs on the same side? Then it's not a good method at all!
+
+## Simulation in a Loop
+
+- We can go a step further by doing this simulation *over and over again* in a loop!
+- This will let us tell whether our method gets it right on average
+- And, when it's wrong, how wrong it is!
+
+## Simulation in a Loop
+
+```{r, echo=TRUE}
+#A blank vector to hold our results
+propHeads <- c()
+
+#Let's run this simulation 2000 times
+for (i in 1:2000) {
+  #Re-create data using the true model
+  coinsdraw <- sample(c("Heads","Tails"),501,replace=T)
+  #Re-perform our analysis
+  result <- mean(coinsdraw=="Heads")
+  #And store the result
+  propHeads[i] <- result
+}
+
+#Let's see what we get on average
+stargazer(as.data.frame(propHeads),type='text')
+```
+
+## Simulation in a Loop
+
+```{r, echo=TRUE,fig.width=8,fig.height=4.5}
+#And let's look at the distribution of our findings
+plot(density(propHeads),xlab="Proportion Heads",main="Mean of 501 Coin Flips over 2000 Samples")
+abline(v=mean(propHeads),col='red')
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#THE GGPLOT2 WAY
+ggplot(as.data.frame(propHeads),aes(x=propHeads))+stat_density(geom='line')+
+  geom_vline(aes(xintercept=mean(propHeads)),col='red')+
+  xlab("Proportion Heads")+
+  ggtitle("Mean of 501 Coin Flips over 2000 Samples")
+```
+
+## Simulation in a Loop
+
+- Now that's pretty exact!
+- What are we learning here?
+- The method that we used (simply taking the proportion of heads) will, on average, give us the right answer (.5). Good! Now, if we're interested in a similar case in the real world, we can apply this method.
+- Keeping in mind that in any given sample that we actually observe, it might be a little off.
+
+## Now Imagine
+
+- Imagine we *didn't* know the answer was .5. What would have happened?
+- Wonder "what proportion of the time will a coin be heads?" (what is the true model?)
+- Collect data on coin flips
+- Perform our analysis method - take proportion of heads, and get `r mean(coins=='Heads')`
+- Come to the conclusion that the *true model* is that the coin produces heads `r mean(coins=='Heads')` of the time.
+- We wouldn't be dead on, but on average we'd be right!
+
+## Generating Other Kinds of Data
+
+- We can use `sample()` as before to pick random data from different categories like Heads and Tails, or integers (say, `1:10`)
+- R also has a whole buncha functions to generate random data from other kinds of distributions. See `help(Distributions)`.
+- We will focus on two:
+- The *uniform* distribution assigns equal probablity to each value in its range (default 0 to 1)
+- The *normal* distribution is a bell curve - observations near the mean are very common, observations far away from the mean very rare
+
+## Generating uniform data
+
+- `runif(thismanyobs,min,max)` will draw `thismanyobs` observations from the range of `min` to `max`. 
+- `runif(thismanyobs)` will assume `min=0` and `max=1`
+
+```{r, echo=TRUE}
+uniformdata <- runif(5)
+uniformdata
+```
+
+## Generating Uniform Data
+
+```{r, echo=TRUE,fig.width=8,fig.height=5}
+uniformdata <- runif(2000)
+hist(uniformdata,xlab="Random Value",main="Distribution of Random Data from Uniform Distribution",probability=TRUE)
+```
+
+## Generating Uniform Data
+
+- Good for variables that should be bounded - "percent male" can only be 0-1
+- Gives even probability of getting each value
+
+## Generating Normal data
+
+- `rnorm(thismanyobs,mean,sd)` will draw `thismanyobs` observations from a normal distribution with mean `mean` and standard deviation `sd`
+- `rnorm(thismanyobs)` will assume `mean=0` and `sd=1`
+
+```{r, echo=TRUE}
+normaldata <- rnorm(5)
+normaldata
+```
+
+## Generating Normal Data
+
+```{r, echo=TRUE,fig.width=8,fig.height=5}
+normaldata <- rnorm(2000)
+hist(normaldata,xlab="Random Value",main="Distribution of Random Data from Normal Distribution",probability=TRUE)
+```
+
+## Generating Normal Data
+
+- Good for many 'real-worldy' variables - height, intellect, log income, education level
+- Especially when those distributions tend to be tightly packed around the mean!
+- Less good for variables with huge huge outliers, like stock market returns
+
+## Let's Simulate!
+
+- Let's expand our use of simulation to simulate the relationship between *two* variables
+- We can do this by using one variable to build another (note that I draw 400 random genders, and add to them 400 random normals)
+
+```{r, echo=TRUE}
+# 400 people equally likely to be M or F
+simdata <- tibble(gender = sample(c("Male","Female"),400,replace=T)) %>%
+  # Height is normally distributed with mean 5.5 and sd 1
+  #and men are .9 of a foot taller
+  mutate(heightft = .9*(gender == "Male")+rnorm(400,5.5))
+simdata %>% group_by(gender) %>% summarize(height = mean(heightft))
+```
+
+## Two Variable Simulation
+
+- We get in our simulation that men are on average `r mean(filter(simdata,gender=="Male")$heightft)-mean(filter(simdata,gender=="Female")$heightft)` taller than women.
+- The true data-generating process is that heightft is a normal variable with mean 5.5, plus .9 if you're male
+
+```{r, echo=FALSE,fig.width=7,fig.height=3.5}
+ggplot(filter(simdata,gender=="Male"),aes(x=heightft,col='Male'))+stat_density(geom='line')+
+  stat_density(data=filter(simdata,gender=="Female"),aes(x=heightft,col='Female'),geom='line')+
+  scale_color_manual(values=c('red','blue'))
+```
+
+## Two variable simulation
+
+- So does checking for the difference of means give us back the difference in height from the data-generating process? Let's loop!
+
+```{r, echo=TRUE}
+heightdiff <- c()
+for (i in 1:2500) {
+  simdata <- tibble(gender = sample(c("Male","Female"),400,replace=T)) %>%
+    mutate(heightft = .9*(gender == "Male")+rnorm(400,5.5))
+  heightdiff[i] <- mean(filter(simdata,gender=="Male")$heightft)-
+    mean(filter(simdata,gender=="Female")$heightft)
+}
+
+stargazer(as.data.frame(heightdiff),type='text')
+```
+
+## Another Example
+
+- So far, no problem, right? Everything works out. And, I mean, of course it does. 
+- Of *course* the average number of heads in a sample will on average be 50%.
+- So what can we actually learn here?
+- It may help to see an example where we get the *wrong* answer
+
+## Another Example
+
+```{r, echo=TRUE}
+# Is your company in tech? Let's say 30% of firms are
+df <- tibble(tech = sample(c(0,1),500,replace=T,prob=c(.7,.3))) %>%
+  #Tech firms on average spend $3mil more defending IP lawsuits
+  mutate(IP.spend = 3*tech+runif(500,min=0,max=4)) %>%
+  #Tech firms also have higher profits. But IP lawsuits lower profits
+  mutate(log.profit = 2*tech - .3*IP.spend + rnorm(500,mean=2))
+# Now let's check for how profit and IP.spend are correlated!
+cor(df$log.profit,df$IP.spend)
+```
+
+- Uh-oh! Truth is negative relationship, but data says positive!!
+
+## Another Example
+
+- Maybe just a fluke? Let's loop.
+
+```{r, echo=TRUE}
+IPcorr <- c()
+for (i in 1:1000) {
+  df <- tibble(tech = sample(c(0,1),500,replace=T,prob=c(.7,.3))) %>%
+    mutate(IP.spend = 3*tech+runif(500,min=0,max=4)) %>%
+    mutate(log.profit = 2*tech - .3*IP.spend + rnorm(500,mean=2))
+  IPcorr[i] <- cor(df$log.profit,df$IP.spend)
+}
+
+stargazer(as.data.frame(IPcorr),type='text')
+```
+
+## What's Happening?
+
+- A graph might help
+
+```{r, echo=FALSE,fig.height=5.5}
+ggplot(df,aes(x=IP.spend,y=log.profit,color=as.factor("All Companies")))+geom_point()+
+  guides(color=guide_legend(title="Firm Type"))
+```
+
+## What's Happening?
+
+- A graph might help
+
+```{r, echo=FALSE,fig.height=5.5}
+ggplot(mutate(df,tech=factor(tech,labels=c("Not Tech","Tech"))),
+              aes(x=IP.spend,y=log.profit,color=tech))+geom_point()+
+  guides(color=guide_legend(title="Firm Type"))
+```
+
+## Simpson's Paradox
+
+- Here we have a true negative relationship - we know it's in the true model!
+- But when we plot it out, it's positive
+- It's clear what's happening - WITHIN tech companies and non-tech companies, IP spend is negatively correlated with profit
+- But because tech companies have higher IP spend and higher profit, they're positively correlated! 
+- This is known as "Simpson's Paradox" and shows up in many places
+
+## Simpson's Paradox
+- So our method (looking at the correlation between them) doesn't work!
+- The simulation has shown us that we'd get it wrong if we do this, because our analysis method doesn't correct for what tech is doing here.
+- We need to have some way of incorporating what we know about tech
+- Taking what we might know about the true model - that firm type has something to do with this, and adjusting so we get the right answer
+- This sort of thinking is what we'll be getting into after the midterm.
+
+## Practice
+
+- Use the `prob` option in `sample` to generate 300 coin flips weighted to be 55% heads. Calculate heads prop.
+- Loop it 2000 times. How often will you correctly claim that the coin is more than 50% heads?
+- Create `dat`: 1500 obs of `married` (0 or 1), `educ` (unif 0 to 16, plus `2*married`), `log.wage` (normal mean 5 plus `.1*educ` plus `2*married`)
+- Loop it 1000 times and calculate `cor` between `educ` and `log.wage` each time. 
+- It's positive - does that mean it's right? If not, how do you know?
+- Use `plot` and then `points` to plot the `married==0` and `married==1` data in different colors.
+
+## Practice Answers
+
+```{r, echo=TRUE, eval=FALSE}
+co <- sample(c("Heads","Tails"),300,replace=T,prob=c(.55,.45))
+mean(co=="Heads")
+
+headsprop <- c()
+for (i in 1:2000) {
+  co <- sample(c("Heads","Tails"),300,replace=T,prob=c(.55,.45))
+  headsprop[i] <- mean(co=="Heads")
+}
+mean(headsprop > .5)
+
+educCor <- c()
+for (j in 1:1000) {
+  dat <- tibble(married=sample(0:1,1500,replace=T)) %>%
+    mutate(educ = 2*married + runif(1500,0,16)) %>%
+    mutate(log.wage = .1*educ + 2*married + rnorm(1500,5))
+  educCor[j] <- cor(dat$educ,dat$log.wage)
+}
+mean(educCor)
+#This is still wrong - we're ignoring what married does, and so OVERSTATING the correlation
+
+plot(filter(dat,married==0)$educ,filter(dat,married==0)$log.wage,col='red',
+     ylim=range(c(min(dat$log.wage),max(dat$log.wage))),
+     xlim=range(c(min(dat$educ),max(dat$educ))),
+     xlab="Education",
+     ylab="Log Wages")
+points(filter(dat,married==1)$educ,filter(dat,married==1)$log.wage,col='blue')
+#Note the xlim and ylim options so we aren't cut off. 
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#THE GGPLOT2 WAY
+#Note this handles the axis limits automatically
+ggplot(dat,aes(x=educ,y=log.wage,color=factor(married)))+
+  geom_point()+
+  xlab("Education")+
+  ylab("Log Wages")
+```
