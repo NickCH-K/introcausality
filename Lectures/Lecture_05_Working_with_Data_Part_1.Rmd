@@ -35,7 +35,7 @@ options(warn=-1)
 
 |Spreadsheet | data.frame | 
 |------------|-------------|
-|![](Lecture_5_Spreadsheet.png) |![](Lecture_5_data_frame.png)|
+|![](Lecture_05_Spreadsheet.png) |![](Lecture_05_data_frame.png)|
 
 
 ## Example

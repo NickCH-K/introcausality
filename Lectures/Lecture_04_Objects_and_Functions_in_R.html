@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="generator" content="pandoc">
   <meta name="author" content="Nick Huntington-Klein" />
-  <title>Lecture 2: Understanding Data</title>
+  <meta name="dcterms.date" content="2019-01-17" />
+  <title>Lecture 4: Objects and Functions in R</title>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
@@ -486,186 +487,298 @@ document.getElementsByTagName('head')[0].appendChild(style);
     <div class="slides">
 
 <section>
-    <h1 class="title">Lecture 2: Understanding Data</h1>
+    <h1 class="title">Lecture 4: Objects and Functions in R</h1>
     <h2 class="author">Nick Huntington-Klein</h2>
-    <h3 class="date">December 1, 2018</h3>
+    <h3 class="date">January 17, 2019</h3>
 </section>
 
-<section id="whats-the-point" class="slide level2">
-<h2>What’s the Point?</h2>
-<p>What are we actually trying to DO when we use data?</p>
-<p>Contrary to popular opinion, the point isn’t to make pretty graphs or to make a point, or justify something you’ve done.</p>
-<p>Those may be nice side effects!</p>
-</section>
-<section id="uncovering-truths" class="slide level2">
-<h2>Uncovering Truths</h2>
-<p>The cleanest way to think about data analysis is to remember that data <em>comes from somewhere</em></p>
-<p>There was some process that <em>generated that data</em></p>
-<p>Our goal, in all data analysis, is to get some idea of <em>what that process is</em></p>
-</section>
-<section id="example" class="slide level2">
-<h2>Example</h2>
+<section id="working-in-r" class="slide level2">
+<h2>Working in R</h2>
 <ul>
-<li>Imagine a basic coin flip</li>
-<li>Every time we flip, we get heads half the time and tails half the time</li>
-<li>The TRUE process that generates the data is that there’s a coin that’s heads half the time and tails half the time</li>
-<li>If we analyze the data correctly, we should report back that the coin is heads half the time</li>
-<li>Let’s try calculating the <em>proportion</em> of heads</li>
-</ul>
-</section>
-<section id="example-1" class="slide level2">
-<h2>Example</h2>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co">#Generate 500 heads and tails</span>
-data &lt;-<span class="st"> </span><span class="kw">sample</span>(<span class="kw">c</span>(<span class="st">&quot;Heads&quot;</span>,<span class="st">&quot;Tails&quot;</span>),<span class="dv">500</span>,<span class="dt">replace=</span><span class="ot">TRUE</span>)
-<span class="co">#Calculate the proportion of heads</span>
-<span class="kw">mean</span>(data<span class="op">==</span><span class="st">&quot;Heads&quot;</span>)</code></pre></div>
-<pre><code>## [1] 0.49</code></pre>
-<p><img src="data:image/png;base64,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" /><!-- --></p>
-</section>
-<section id="example-2" class="slide level2">
-<h2>Example</h2>
+<li>Today we’ll be starting to actually DO stuff in R</li>
+<li>R is all about:
 <ul>
-<li>Let’s try out that code in R a few times and see what happens</li>
-<li>First, what do we <em>want</em> to happen? What should we see if our data analysis method is good?</li>
-</ul>
-</section>
-<section id="how-good-was-it" class="slide level2">
-<h2>How Good Was It?</h2>
-<ul>
-<li>Our data analysis consistently told us that the coin was generating heads about half the time - the true process!</li>
-<li>Our data analysis lets us conclude the coin is fair</li>
-<li>That is describing the true data generating process pretty well!</li>
-<li>Let’s think - what other approaches could we have taken? What would the pros and cons be?
-<ul>
-<li>Counting the heads instead of taking the proportion?</li>
-<li>Taking the mean and adding .1?</li>
-<li>Just saying it’s 50%?</li>
+<li>Creating objects</li>
+<li>Looking at objects</li>
+<li>Manipulating objects</li>
+<li>That’s, uh, it. That’s all. That’s what R does.</li>
 </ul></li>
 </ul>
 </section>
-<section id="another-example" class="slide level2">
-<h2>Another Example</h2>
+<section id="creating-a-basic-object" class="slide level2">
+<h2>Creating a Basic Object</h2>
 <ul>
-<li>People have different amounts of money in their wallet, from 0 to 10</li>
-<li>We flip a coin and, if it’s heads, give them a dollar</li>
-<li>What’s the data generating process here?</li>
-<li>What should our data analysis uncover?</li>
+<li>Let’s create an object. We’re going to do this with the assignment operator <code>&lt;-</code> (a.k.a. “gets”)</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">a &lt;-<span class="st"> </span><span class="dv">4</span></code></pre></div>
+<ul>
+<li>This creates an object called <code>a</code>. What is that object? It’s a number. Specifically, it’s the number 4. We know that because we took that 4 and we shoved it into <code>a</code>.</li>
+<li>Why store it as an object rather than just saying 4? Oh, plenty of reasons.</li>
+<li>We can do more complex calculations before storing it, too.</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">b &lt;-<span class="st"> </span><span class="kw">sqrt</span>(<span class="dv">16</span>)<span class="op">+</span><span class="dv">10</span></code></pre></div>
+</section>
+<section id="looking-at-objects" class="slide level2">
+<h2>Looking at Objects</h2>
+<ul>
+<li>We can see this object that we’ve created in the Environment pane</li>
+<li>Putting that object on a line by itself in R will show us what it is.</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">a</code></pre></div>
+<pre><code>## [1] 4</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">b</code></pre></div>
+<pre><code>## [1] 14</code></pre>
+</section>
+<section id="looking-at-objects-1" class="slide level2">
+<h2>Looking at Objects</h2>
+<ul>
+<li>We can even create an object and look at it in the console without storing it.</li>
+<li>Let’s think about what is really happening in these lines</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="dv">3</span></code></pre></div>
+<pre><code>## [1] 3</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">a<span class="op">+</span>b</code></pre></div>
+<pre><code>## [1] 18</code></pre>
+</section>
+<section id="looking-at-objects-differently" class="slide level2">
+<h2>Looking at Objects Differently</h2>
+<ul>
+<li>We can run objects through <strong>functions</strong> to look at them in different ways</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co">#What does a look like if we take the square root of it?</span>
+<span class="kw">sqrt</span>(a)</code></pre></div>
+<pre><code>## [1] 2</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co">#What does it look like if we add 1 to it?</span>
+a <span class="op">+</span><span class="st"> </span><span class="dv">1</span></code></pre></div>
+<pre><code>## [1] 5</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co">#If we look at it, do we see a number?</span>
+<span class="kw">is.numeric</span>(a)</code></pre></div>
+<pre><code>## [1] TRUE</code></pre>
+</section>
+<section id="manipulating-objects" class="slide level2">
+<h2>Manipulating Objects</h2>
+<ul>
+<li>We manipulated the object and LOOKED at it, we can also SAVE it, or UPDATE it.</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co">#We looked at what a looked like with 1 added, but a itself wasn't changed</span>
+a</code></pre></div>
+<pre><code>## [1] 4</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co">#Let's save a+1 as something else</span>
+b &lt;-<span class="st"> </span>a <span class="op">+</span><span class="st"> </span><span class="dv">1</span>
+<span class="co">#And let's overwrite a with its square root</span>
+a &lt;-<span class="st"> </span><span class="kw">sqrt</span>(a)
+a</code></pre></div>
+<pre><code>## [1] 2</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">b</code></pre></div>
+<pre><code>## [1] 5</code></pre>
+</section>
+<section id="some-notes" class="slide level2">
+<h2>Some Notes</h2>
+<ul>
+<li>Even though we changed <code>a</code>, <code>b</code> was already set using the old value of <code>a</code>, and so was still <code>4+1=5</code>, not <code>2+1=3</code>.</li>
+<li><code>a</code> basically got <em>reassigned</em> with <code>&lt;-</code>. That’s how we got it to be <code>2</code></li>
+<li>This is a very simple example, but basically <em>everything</em> in R is just this process but with more complex objects and more complex functions!</li>
 </ul>
 </section>
-<section id="another-example-1" class="slide level2">
-<h2>Another Example</h2>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co">#Generate 1000 wallets and 1000 heads and tails</span>
-data &lt;-<span class="st"> </span><span class="kw">data.frame</span>(<span class="dt">wallets=</span><span class="kw">sample</span>(<span class="dv">0</span><span class="op">:</span><span class="dv">10</span>,<span class="dv">1000</span>,<span class="dt">replace=</span><span class="ot">TRUE</span>))
-data<span class="op">$</span>coin &lt;-<span class="st"> </span><span class="kw">sample</span>(<span class="kw">c</span>(<span class="st">&quot;Heads&quot;</span>,<span class="st">&quot;Tails&quot;</span>),<span class="dv">1000</span>,<span class="dt">replace=</span><span class="ot">TRUE</span>)
-<span class="co">#Give a dollar whenever it's a heads, then get average money by coin</span>
-data &lt;-<span class="st"> </span>data <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">mutate</span>(<span class="dt">wallets =</span> wallets <span class="op">+</span><span class="st"> </span>(coin<span class="op">==</span><span class="st">&quot;Heads&quot;</span>))
-data <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">group_by</span>(coin) <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">summarize</span>(<span class="dt">wallets =</span> <span class="kw">mean</span>(wallets))</code></pre></div>
-<pre><code>## # A tibble: 2 x 2
-##   coin  wallets
-##   &lt;chr&gt;   &lt;dbl&gt;
-## 1 Heads    6.02
-## 2 Tails    4.97</code></pre>
-<p><img src="data:image/png;base64,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" /><!-- --></p>
-</section>
-<section id="conclusions" class="slide level2">
-<h2>Conclusions</h2>
+<section id="types-of-objects" class="slide level2">
+<h2>Types of Objects</h2>
 <ul>
-<li>What does our data analysis tell us?</li>
-<li>We <em>observe</em> a difference of 1.06 between the heads and tails</li>
-<li>Because we know that nothing would have caused this difference other than the coin flip, we can conclude that the coin flip <em>is why</em> there’s a difference of 1.06</li>
+<li>We already determined that <code>a</code> was a number. But what else could it be? What other kinds of variables are there?</li>
+<li>Some basic object types:
+<ul>
+<li>Numeric: A single number</li>
+<li>Character: A string of letters, like <code>'hello'</code></li>
+<li>Logical: <code>TRUE</code> or <code>FALSE</code> (or <code>T</code> or <code>F</code>)</li>
+<li>Factor: A category, like <code>'left handed', 'right handed', or 'ambidextrous'</code></li>
+<li>Vector: A collection of objects of the same type</li>
+</ul></li>
 </ul>
 </section>
-<section id="but-what-if" class="slide level2">
-<h2>But What If?</h2>
+<section id="characters" class="slide level2">
+<h2>Characters</h2>
 <ul>
-<li>So far we’ve been cheating</li>
-<li>We know exactly what process generated that data</li>
-<li>So really, our data analysis doesn’t matter</li>
-<li>But what if we <em>don’t</em> know that?</li>
-<li>We want to make sure our <em>method</em> is good, so that when we draw a conclusion from our data, it’s the right one</li>
+<li>A character object is a piece of text, held in quotes like <code>''</code> or <code>&quot;&quot;</code></li>
+<li>For example, maybe you have some data on people’s addresses.</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">address &lt;-<span class="st"> '321 Fake St.'</span>
+address</code></pre></div>
+<pre><code>## [1] &quot;321 Fake St.&quot;</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">is.character</span>(address)</code></pre></div>
+<pre><code>## [1] TRUE</code></pre>
+</section>
+<section id="logical" class="slide level2">
+<h2>Logical</h2>
+<ul>
+<li>Logicals are binary - TRUE or FALSE. They’re extremely important because lots of data is binary.</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">c &lt;-<span class="st"> </span><span class="ot">TRUE</span>
+<span class="kw">is.logical</span>(c)</code></pre></div>
+<pre><code>## [1] TRUE</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">is.character</span>(a)</code></pre></div>
+<pre><code>## [1] FALSE</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">is.logical</span>(<span class="kw">is.numeric</span>(a))</code></pre></div>
+<pre><code>## [1] TRUE</code></pre>
+</section>
+<section id="logical-1" class="slide level2">
+<h2>Logical</h2>
+<ul>
+<li>Logicals are used a lot in programming too, because you can evaluate whether conditions hold.</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">a <span class="op">&gt;</span><span class="st"> </span><span class="dv">100</span></code></pre></div>
+<pre><code>## [1] FALSE</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">a <span class="op">&gt;</span><span class="st"> </span><span class="dv">100</span> <span class="op">|</span><span class="st"> </span>b <span class="op">==</span><span class="st"> </span><span class="dv">5</span></code></pre></div>
+<pre><code>## [1] TRUE</code></pre>
+<ul>
+<li><code>&amp;</code> is AND, <code>|</code> is OR, and to check equality use <code>==</code>, not <code>=</code>. <code>&gt;=</code> is greater than OR equal to, similarly for <code>&lt;=</code></li>
 </ul>
 </section>
-<section id="example-3" class="slide level2">
-<h2>Example 3</h2>
+<section id="logical-2" class="slide level2">
+<h2>Logical</h2>
 <ul>
-<li>We’re economists! So no big surprise we might be interested in demand curves</li>
-<li>Demand curve says that as <span class="math inline">\(P\)</span> goes up, <span class="math inline">\(Q_d\)</span> goes down</li>
-<li>Let’s gather data on <span class="math inline">\(P\)</span> and <span class="math inline">\(Q_d\)</span></li>
-<li>And determine things like the slope of demand, demand elasticity, etc.</li>
-<li>Just so happens I have some data on 1879-1923 US food export prices and quantities!</li>
+<li>They are also equivalent to <code>TRUE=1</code> and <code>FALSE=0</code> which comes in handy.</li>
+<li>We can use <code>as</code> functions to change one object type to another (although for <code>T=1, F=0</code> it does it automatically)</li>
 </ul>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">as.numeric</span>(<span class="ot">FALSE</span>)</code></pre></div>
+<pre><code>## [1] 0</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="ot">TRUE</span> <span class="op">+</span><span class="st"> </span><span class="dv">3</span></code></pre></div>
+<pre><code>## [1] 4</code></pre>
 </section>
-<section id="example-3-1" class="slide level2">
-<h2>Example 3</h2>
-<p><img src="data:image/png;base64,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" /><!-- --></p>
-</section>
-<section id="example-3-2" class="slide level2">
-<h2>Example 3</h2>
-<p>We can calculate the correlation between <span class="math inline">\(P\)</span> and <span class="math inline">\(Q\)</span>:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">cor</span>(foodPQ<span class="op">$</span>FoodPrice,foodPQ<span class="op">$</span>FoodQuantity)</code></pre></div>
-<pre><code>## [1] 0.2970008</code></pre>
-</section>
-<section id="example-3-conclusions" class="slide level2">
-<h2>Example 3 Conclusions</h2>
+<section id="logicals-test" class="slide level2">
+<h2>Logicals Test</h2>
 <ul>
-<li>We <em>observe</em> a POSITIVE correlation of 0.3</li>
-<li>But demand curves shouldn’t slope upwards… huh?</li>
-<li>Does demand really slope up? Does this tell us about the process that generated this data? Why or why not?</li>
-<li>Why do we see the data we do? Let’s try to think of some reasons.</li>
+<li>Let’s stop and try to think about what these lines might do:</li>
 </ul>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">is.logical</span>(<span class="kw">is.numeric</span>(<span class="ot">FALSE</span>))
+<span class="kw">is.numeric</span>(<span class="dv">2</span>) <span class="op">+</span><span class="st"> </span><span class="kw">is.character</span>(<span class="st">'hello'</span>)
+<span class="kw">is.numeric</span>(<span class="dv">2</span>) <span class="op">&amp;</span><span class="st"> </span><span class="kw">is.character</span>(<span class="dv">3</span>)
+<span class="ot">TRUE</span> <span class="op">|</span><span class="st"> </span><span class="ot">FALSE</span>
+<span class="ot">TRUE</span> <span class="op">&amp;</span><span class="st"> </span><span class="ot">FALSE</span></code></pre></div>
 </section>
-<section id="getting-difficult" class="slide level2">
-<h2>Getting Difficult</h2>
+<section id="factors" class="slide level2">
+<h2>Factors</h2>
 <ul>
-<li>We need to be more careful to figure out what’s actually going on</li>
-<li>Plus, the more we know about the context and the underlying model, the more likely it is that we won’t miss something important</li>
+<li>Factors are categorical variables - mutually exclusive groups</li>
+<li>They look like strings, but they’re more like logicals, but with more than two levels (and labeled differently than T and F)</li>
+<li>Factors have <em>levels</em> showing the possible categories you can be in</li>
 </ul>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">e &lt;-<span class="st"> </span><span class="kw">as.factor</span>(<span class="st">'left-handed'</span>)
+<span class="kw">levels</span>(e) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">'left-handed'</span>,<span class="st">'right-handed'</span>,<span class="st">'ambidextrous'</span>)
+e</code></pre></div>
+<pre><code>## [1] left-handed
+## Levels: left-handed right-handed ambidextrous</code></pre>
 </section>
-<section id="getting-difficult-1" class="slide level2">
-<h2>Getting Difficult</h2>
+<section id="vectors" class="slide level2">
+<h2>Vectors</h2>
 <ul>
-<li>Our fake examples were easy because we knew perfectly where the data came from</li>
-<li>But how much do you know about food prices in turn-of-the-century US?</li>
-<li>Or for that matter how prices are set in the food industry?</li>
-<li>There’s more work to do in uncovering the process that made the data</li>
+<li>Data is basically a bunch of variables all put together</li>
+<li>So unsurprisingly, a lot of R works with vectors, which are a bunch of objects all put together!</li>
+<li>Use <code>c()</code> (concatenate) to put a bunch of objects of the same type together in a vector</li>
+<li>Use square brackets to pick out parts of the vector</li>
 </ul>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">d &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="dv">5</span>,<span class="dv">6</span>,<span class="dv">7</span>,<span class="dv">8</span>)
+<span class="kw">c</span>(<span class="kw">is.numeric</span>(d),<span class="kw">is.vector</span>(d))</code></pre></div>
+<pre><code>## [1] TRUE TRUE</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">d[<span class="dv">2</span>]</code></pre></div>
+<pre><code>## [1] 6</code></pre>
 </section>
-<section id="for-the-record" class="slide level2">
-<h2>For the Record</h2>
+<section id="vectors-1" class="slide level2">
+<h2>Vectors</h2>
 <ul>
-<li>Likely, one of the big problems with our food analysis was that we forgot to account for DEMAND shifting around, showing us what SUPPLY looks like. Supply <em>does</em> slope up!</li>
-<li>Just because we loudly announced that we wanted the demand curve doesn’t force the data to give it to us!</li>
-<li>Let’s imagine the process that might have generated this data by starting with the model itself and seeing how we can <em>generate</em> this data</li>
+<li>Unsurprisingly, lots of statistical functions look at multiple objects (what is statistics but making sense of lots of different measurements of the same thing?)</li>
 </ul>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">mean</span>(d)</code></pre></div>
+<pre><code>## [1] 6.5</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">c</span>(<span class="kw">sum</span>(d),<span class="kw">sd</span>(d),<span class="kw">prod</span>(d))</code></pre></div>
+<pre><code>## [1]   26.000000    1.290994 1680.000000</code></pre>
 </section>
-<section id="but" class="slide level2">
-<h2>But…</h2>
+<section id="vectors-2" class="slide level2">
+<h2>Vectors</h2>
 <ul>
-<li>If we can figure out what methods work well when we <em>do</em> know the right answer</li>
-<li>And apply them when we <em>don’t</em>…</li>
-<li>We can figure out what those processes are</li>
-<li>And that’s the goal!</li>
-<li>This is what we’ll be figuring out how to do technically during the programming part of the class, and conceptually during causal inference</li>
+<li>We can perform the same operation on all parts of the vector at once!</li>
 </ul>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">d <span class="op">+</span><span class="st"> </span><span class="dv">1</span></code></pre></div>
+<pre><code>## [1] 6 7 8 9</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">d <span class="op">+</span><span class="st"> </span>d</code></pre></div>
+<pre><code>## [1] 10 12 14 16</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">d <span class="op">&gt;</span><span class="st"> </span><span class="dv">6</span></code></pre></div>
+<pre><code>## [1] FALSE FALSE  TRUE  TRUE</code></pre>
 </section>
-<section id="r" class="slide level2">
-<h2>R</h2>
+<section id="vectors-3" class="slide level2">
+<h2>Vectors</h2>
 <ul>
-<li>We’ll need good tools to do it</li>
-<li>We’ll be using R</li>
-<li>Let’s go through how R can be installed, in preparation for next week</li>
-<li><a href="http://www.r-project.org">R-Project.org</a></li>
-<li><a href="http://www.rstudio.com">RStudio.com</a></li>
-<li><a href="http://rstudio.cloud">RStudio.cloud</a></li>
+<li>Factors make a lot more sense as a vector</li>
 </ul>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">continents &lt;-<span class="st"> </span><span class="kw">as.factor</span>(<span class="kw">c</span>(<span class="st">'Asia'</span>,<span class="st">'Asia'</span>,<span class="st">'Asia'</span>,
+                          <span class="st">'N America'</span>,<span class="st">'Europe'</span>,<span class="st">'Africa'</span>,<span class="st">'Africa'</span>))
+<span class="kw">table</span>(continents)</code></pre></div>
+<pre><code>## continents
+##    Africa      Asia    Europe N America 
+##         2         3         1         1</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">continents[<span class="dv">4</span>]</code></pre></div>
+<pre><code>## [1] N America
+## Levels: Africa Asia Europe N America</code></pre>
 </section>
-<section id="finish-us-out" class="slide level2">
-<h2>Finish us out</h2>
+<section id="value-matching" class="slide level2">
+<h2>Value Matching</h2>
 <ul>
-<li>Now that we’re all prepared let’s get a jump on homework</li>
-<li>Go to New York Times’ The Upshot or FiveThirtyEight and find an article that uses data</li>
-<li>See Homework 1</li>
-<li>Together let’s start thinking about answers to these questions</li>
+<li>It’s easy to create logicals seeing if a value matches ANY value in a vector with %in%</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="dv">3</span> <span class="op">%in%</span><span class="st"> </span><span class="kw">c</span>(<span class="dv">3</span>,<span class="dv">4</span>)</code></pre></div>
+<pre><code>## [1] TRUE</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">c</span>(<span class="st">'Nick'</span>,<span class="st">'James'</span>) <span class="op">%in%</span><span class="st"> </span><span class="kw">c</span>(<span class="st">'James'</span>,<span class="st">'Andy'</span>,<span class="st">'Sarah'</span>)</code></pre></div>
+<pre><code>## [1] FALSE  TRUE</code></pre>
+</section>
+<section id="basic-vectors" class="slide level2">
+<h2>Basic Vectors</h2>
+<ul>
+<li>Generating basic vectors:</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="dv">1</span><span class="op">:</span><span class="dv">8</span>
+<span class="kw">rep</span>(<span class="dv">4</span>,<span class="dv">3</span>)
+<span class="kw">rep</span>(<span class="kw">c</span>(<span class="st">'a'</span>,<span class="st">'b'</span>),<span class="dv">4</span>)
+<span class="kw">numeric</span>(<span class="dv">5</span>)
+<span class="kw">character</span>(<span class="dv">6</span>)
+<span class="kw">sample</span>(<span class="dv">1</span><span class="op">:</span><span class="dv">20</span>,<span class="dv">3</span>)
+<span class="kw">sample</span>(<span class="kw">c</span>(<span class="st">&quot;Heads&quot;</span>,<span class="st">&quot;Tails&quot;</span>),<span class="dv">6</span>,<span class="dt">replace=</span><span class="ot">TRUE</span>)</code></pre></div>
+<pre><code>## [1] 1 2 3 4 5 6 7 8</code></pre>
+<pre><code>## [1] 4 4 4</code></pre>
+<pre><code>## [1] &quot;a&quot; &quot;b&quot; &quot;a&quot; &quot;b&quot; &quot;a&quot; &quot;b&quot; &quot;a&quot; &quot;b&quot;</code></pre>
+<pre><code>## [1] 0 0 0 0 0</code></pre>
+<pre><code>## [1] &quot;&quot; &quot;&quot; &quot;&quot; &quot;&quot; &quot;&quot; &quot;&quot;</code></pre>
+<pre><code>## [1]  9  7 15</code></pre>
+<pre><code>## [1] &quot;Heads&quot; &quot;Tails&quot; &quot;Tails&quot; &quot;Tails&quot; &quot;Tails&quot; &quot;Heads&quot;</code></pre>
+</section>
+<section id="vector-test" class="slide level2">
+<h2>Vector Test</h2>
+<ul>
+<li>If we do <code>f &lt;- c(2,3,4,5)</code>, then what will the output of these be?</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">f<span class="op">^</span><span class="dv">2</span>
+f <span class="op">+</span><span class="st"> </span><span class="kw">c</span>(<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>,<span class="dv">4</span>)
+<span class="kw">c</span>(f,<span class="dv">6</span>)
+<span class="kw">is.numeric</span>(f)
+<span class="kw">mean</span>(f <span class="op">&gt;=</span><span class="st"> </span><span class="dv">4</span>)
+f<span class="op">*</span><span class="kw">c</span>(<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>)
+<span class="kw">length</span>(f)
+<span class="kw">length</span>(<span class="kw">rep</span>(<span class="dv">1</span><span class="op">:</span><span class="dv">4</span>,<span class="dv">3</span>))
+f<span class="op">/</span><span class="dv">2</span> <span class="op">==</span><span class="st"> </span><span class="dv">2</span> <span class="op">|</span><span class="st"> </span>f <span class="op">&lt;</span><span class="st"> </span><span class="dv">3</span>
+<span class="kw">as.character</span>(f)
+f[<span class="dv">1</span>]<span class="op">+</span>f[<span class="dv">4</span>]
+<span class="kw">c</span>(f,f,f,f)
+f[f[<span class="dv">1</span>]]
+f[<span class="kw">c</span>(<span class="dv">1</span>,<span class="dv">3</span>)]
+f <span class="op">%in%</span><span class="st"> </span>(<span class="dv">1</span><span class="op">:</span><span class="dv">4</span><span class="op">*</span><span class="dv">2</span>)</code></pre></div>
+</section>
+<section id="and-now-you" class="slide level2">
+<h2>And Now You</h2>
+<ul>
+<li>Create a factor that randomly samples six <code>'Male'</code> or <code>'Female'</code> people.</li>
+<li>Add up all the numbers from 18 to 763, then get the mean</li>
+<li>What happens if you make a list with a logical, a numeric, AND a string in it?</li>
+<li>Figure out how to use <code>paste0()</code> to turn <code>c('a','b')</code> into <code>'ab'</code></li>
+<li>Use <code>[]</code> to turn <code>h &lt;- c(10,9,8,7)</code> into <code>c(7,8,10,9)</code> and call it <code>j</code></li>
+<li>(Several ways) Create a vector with eleven 0’s, then a 5.</li>
+<li>(Tough!) Use <code>floor()</code> or <code>%%</code> to count how many multiples of 4 there are between 433 and 899</li>
 </ul>
 </section>
     </div>
