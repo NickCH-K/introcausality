@@ -412,9 +412,9 @@ ggplot(basketball,aes(x=HeightInches,y=PointsPerGame))+geom_point()+
 
 ## Colliders in the Gender Wage Gap
 
-- We are interested in `discrim -> wage`
+- We are interested in `gender -> discrim -> wage`; our treatment is `gender -> discrim`, the discrimination caused by your gender
 
-```{r, dev='CairoPNG', echo=FALSE, fig.width=5, fig.height=5.5}
+```{r, dev='CairoPNG', echo=FALSE, fig.width=5, fig.height=4.5}
 dag <- dagify(occup~gender+abil+discrim,
               wage~abil+discrim+occup,
               discrim~gender,
@@ -428,17 +428,17 @@ ggdag(dag,node_size=20)
 ## Colliders in the Gender Wage Gap
 
 - <span style = "color:red">Front doors</span>/<span style = "color:blue">Open back doors</span>/<span style = "color:orange">Closed back doors</span>
-- <span style = "color:red">`discrim -> wage`</span>
-- <span style = "color:red">`discrim -> occup -> wage`</span>
+- <span style = "color:red">`gender -> discrim -> wage`</span>
+- <span style = "color:red">`gender -> discrim -> occup -> wage`</span>
 - <span style = "color:blue">`discrim <- gender -> occup -> wage`</span>
 - <span style = "color:orange">`discrim <- gender -> occup <- abil -> wage`</span>
-- <span style = "color:orange">`discrim -> occup <- abil -> wage`</span>
+- <span style = "color:orange">`gender -> discrim -> occup <- abil -> wage`</span>
 
 ## Colliders in the Gender Wage Gap
 
 - No `occup` control? Ignore nondiscriminatory reasons to choose different occupations by gender
 - Control for `occup`? Open both back doors, create a correlation between `abil` and `discrim` where there wasn't one
-- And also close a FRONT door, `discrim -> occup -> wage`: discriminatory reasons for gender diffs in `occup`
+- And also close a FRONT door, `gender -> discrim -> occup -> wage`: discriminatory reasons for gender diffs in `occup`
 - We actually *can't* identify the effect we want in this diagram by controlling. It happens!
 - Suggests this question goes beyond just controlling for stuff. Real research on this topic gets clever.
 
