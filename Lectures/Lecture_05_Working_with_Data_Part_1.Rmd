@@ -209,7 +209,7 @@ library(tidyverse)
 - Google R package X to look for packages that do X.
 
 
-## Varable creation with dplyr
+## Variable creation with dplyr
 
 - The *mutate* command will "mutate" our data frame to have a new column in it. We can then overwrite it.
 - The pipe `%>%` says "take df and send it to that mutate command to use"
