@@ -55,7 +55,7 @@ Instead, I will be covering (and linking to outside resources for):
 - Some R stuff, `dplyr` in particular, coming from other statistics packages, particularly Stata
 - The `dagitty` package and `ggdag`
 - Preparing data for student use
-- `ggplot2`, which makes nicer-looking graphs than base R and which you may want to use to make graphs for class
+- `ggplot2`
 - Causal diagrams
 - The toolbox methods without regression
 
@@ -284,7 +284,7 @@ If you want to save them the trouble, you can load in the data yourself, and the
 
 ## ggplot2
 
-The `ggplot2` package (available on its own, or, like `dplyr`, it's also part of the `tidyverse`) is probably the best data-viz tool on the market. In my opinion it's just a shade too hard to use to force the students to use it, but when you're making your own plots you might want to consider making them look that extra shade nicer.
+The `ggplot2` package (available on its own, or, like `dplyr`, it's also part of the `tidyverse`) is probably the best data-viz tool on the market, and it is just accessible enough for students to use it, at least for basic graphs.
 
 The `ggplot` function (confusingly, the package is `ggplot2`, the function is `ggplot`) is way, way, way too deep for me to go into in detail. I'll instead recommend you to this [book chapter by the package author Hadley Wickham](https://r4ds.had.co.nz/data-visualisation.html). But I will give you a very basic overview and a scatterplot example.
 
