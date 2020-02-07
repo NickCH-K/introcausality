@@ -258,7 +258,7 @@ You can do this too if you'd like to save the images, put them where you need th
 
 The `dagify` function creates a DAG object (directed acyclic graph, aka causal diagram). Specify an arrow from `X` to `Y` with `Y~X`. You can also, if you like, specify the coordinates of each node. This is a bit tedious but it does make it look nicer. Unfortunately, as far as I can tell there's no way to make the variable names hang *outside* the circles, so you're stuck using very short variable names.
 
-Once you have your DAG object, run it through `tidy_dagitty()`, and then finally plot it using `ggdag()`, as below.
+Once you have your DAG object, run it through `tidy_dagitty()`, and then finally plot it using `ggdag()`, as below. Be sure to add `theme_void()` to remove the background.
 
 ```{r, dev='CairoPNG', echo=TRUE, fig.width=6,fig.height=2.5}
 dag <- dagify(Y~X+W,
@@ -267,7 +267,7 @@ dag <- dagify(Y~X+W,
                 x=c(X=1,W=2,Y=3),
                 y=c(X=1,W=2,Y=1)
               )) %>% tidy_dagitty()
-ggdag(dag,node_size=10)
+ggdag(dag,node_size=10) + theme_void()
 ```
 
 A few extra notes on this (and other graphs you include in RMarkdown): First, the `{r}` call that starts off this code chunk should probably have the `fig.width` and `fig.height` arguments to tell it how big to make the image. Second, if you're on Windows, you should load the `Cairo` package and add `dev='CairoPNG'` as well, or else your results will be fuzzy. That particular code chunk was run with `{r, dev='CairoPNG', echo=TRUE, fig.width=6,fig.height=2.5}`.
